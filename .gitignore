@@ -25,3 +25,4 @@ build/
 
 # Locally obtained papers and generated research outputs are not redistributable fixtures.
 papers/
+manual-tests/*.pdf

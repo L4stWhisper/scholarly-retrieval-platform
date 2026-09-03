@@ -457,6 +457,13 @@ python -m pytest -q
 [技术实现与可溯源文档](docs/technical-implementation.md)；测试矩阵、真实案例和 Claude Code
 验收见[测试验收文档](docs/test-acceptance.md)。
 
+仓库中的两个测试资料目录职责不同：
+
+- `benchmarks/` 保存机器可读、版本化的稳定验收案例，自动化测试会读取它；当前内容是公开真实数据的
+  Reference pipeline smoke 快照，不是性能跑分，也不是人工标注 gold；
+- `manual-tests/` 保存人工选择论文后得到的检查结果，供人复核真实检索效果；第三方论文 PDF 只在本地
+  使用并由 `.gitignore` 排除，仓库保存论文链接、许可信息和可发布的结果文件。
+
 ## 文档
 
 本项目只维护三份面向人的主文档，避免内容漂移：

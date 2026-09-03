@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "case_id": "simulating-real-world-survey-reference-retrieval",
+  "kind": "manual_functional_test",
+  "observed_at": "2026-09-03",
+  "paper": {
+    "title": "Simulating the Real World: A Unified Survey of Multimodal Generative Models",
+    "arxiv_id": "2503.04641",
+    "source_page": "https://arxiv.org/abs/2503.04641",
+    "pdf_url": "https://arxiv.org/pdf/2503.04641",
+    "arxiv_license_url": "http://arxiv.org/licenses/nonexclusive-distrib/1.0/"
+  },
+  "artifacts": [
+    "simulating-real-world-survey-reference-results.txt"
+  ],
+  "pdf_redistributed": false,
+  "note": "The local PDF is excluded from Git because the displayed arXiv license does not grant this repository a general third-party redistribution license. Download it from the source URL for reproduction."
+}

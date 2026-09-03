@@ -112,6 +112,8 @@ SearchQuery
 | `Dockerfile.ocr` / `compose.ocr.yaml` | OCRmyPDF + Tesseract + GROBID 可复现实验环境 |
 | `compose.distributed.yaml` | Nginx、API replicas、workers、Redis 的可选部署切片 |
 | `.github/workflows/ci.yml` | Python 版本矩阵静态与离线测试 |
+| `benchmarks/` | 自动化测试读取的版本化真实数据 smoke 案例；不是性能跑分或人工 gold |
+| `manual-tests/` | 人工选择论文的可复核结果与来源清单；第三方 PDF 不进入 Git |
 
 ## 4. 核心领域模型
 

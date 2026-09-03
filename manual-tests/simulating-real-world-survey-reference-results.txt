@@ -1,0 +1,806 @@
+================================================================================
+REFERENCES FROM:
+Simulating the Real World: A Unified Survey of Multimodal Generative Models
+arXiv:2503.04641 | IEEE TPAMI 2026
+Manual functional test artifact generated on 2026-09-03; counts and provider records may drift.
+Source and redistribution note: see manual-test-case.json. The paper PDF is not stored in Git.
+================================================================================
+
+Total References: 100
+
+================================================================================
+
+[1] SV3D: Novel Multi-view Synthesis and 3D Generation from a Single Image using Latent Video Diffusion
+    Authors: Vikram S. Voleti, C. Yao, Mark Boss, Adam Letts, David Pankratz et al. (9 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2403.12008
+    ARXIV: 2403.12008
+    Record ID: semantic_scholar:03e2cfa44b64489fb98f09dfbd940043fbef90ad
+
+[2] Direct3D-S2: Gigascale 3D Generation Made Easy with Spatial Sparse Attention
+    Authors: Shuang Wu, Youtian Lin, Feihu Zhang, Yifei Zeng, Yikang Yang et al. (11 authors)
+    Year: 2025
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2505.17412
+    ARXIV: 2505.17412
+    Record ID: semantic_scholar:03ebe0fb80d3253a5231d0f1cbac7f3f20fa3aec
+
+[3] MiniGPT4-Video: Advancing Multimodal LLMs for Video Understanding with Interleaved Visual-Textual Tokens
+    Authors: Kirolos Ataallah, Xiaoqian Shen, Eslam Abdelrahman, Essam Sleiman, Deyao Zhu et al. (7 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2404.03413
+    ARXIV: 2404.03413
+    Record ID: semantic_scholar:057fea4eb5bf72c923df2a00296f48a347863591
+
+[4] TripoSG: High-Fidelity 3D Shape Synthesis using Large-Scale Rectified Flow Models
+    Authors: Yangguang Li, Zi-Xin Zou, Zexiang Liu, Dehui Wang, Yuanzhi Liang et al. (11 authors)
+    Year: 2025
+    Venue: IEEE Transactions on Pattern Analysis and Machine Intelligence
+    DOI: 10.48550/arxiv.2502.06608
+    ARXIV: 2502.06608
+    Record ID: semantic_scholar:06f52b5bde025a6f32ab4522b2a9c40068137603
+
+[5] IM-3D: Iterative Multiview Diffusion and Reconstruction for High-Quality 3D Generation
+    Authors: Luke Melas-Kyriazi, Iro Laina, C. Rupprecht, Natalia Neverova, Andrea Vedaldi et al. (7 authors)
+    Year: 2024
+    Venue: International Conference on Machine Learning
+    DOI: 10.48550/arxiv.2402.08682
+    ARXIV: 2402.08682
+    Record ID: semantic_scholar:0ae390462f72ec4b7ea2e66fd0d43922667c7ca8
+
+[6] CLAY: A Controllable Large-scale Generative Model for Creating High-quality 3D Assets
+    Authors: Longwen Zhang, Ziyu Wang, Qixuan Zhang, Qiwei Qiu, Anqi Pang et al. (9 authors)
+    Year: 2024
+    Venue: ACM Transactions on Graphics
+    DOI: 10.1145/3658146
+    ARXIV: 2406.13897
+    Record ID: semantic_scholar:0b6106e4e4bd18310fd81957625fc912ea403159
+
+[7] VideoPoet: A Large Language Model for Zero-Shot Video Generation
+    Authors: D. Kondratyuk, Lijun Yu, Xiuye Gu, José Lezama, Jonathan Huang et al. (31 authors)
+    Year: 2023
+    Venue: International Conference on Machine Learning
+    DOI: 10.48550/arxiv.2312.14125
+    ARXIV: 2312.14125
+    Record ID: semantic_scholar:0c4f46e4dcae5527018e6432fb60cfe8c3354e97
+
+[8] CAT4D: Create Anything in 4D with Multi-View Video Diffusion Models
+    Authors: Rundi Wu, Ruiqi Gao, Ben Poole, Alex Trevithick, Changxi Zheng et al. (7 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.02427
+    ARXIV: 2411.18613
+    Record ID: semantic_scholar:0cb9b4c35601bafadbb3e5c99c38c483bfe0c549
+
+[9] LATTE3D: Large-scale Amortized Text-To-Enhanced3D Synthesis
+    Authors: Kevin Xie, Jonathan Lorraine, Tianshi Cao, Jun Gao, James Lucas et al. (8 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2403.15385
+    ARXIV: 2403.15385
+    Record ID: semantic_scholar:0d56fef3f3c2fbcd8212d4389a1123f58865dfc8
+
+[10] Urban Architect: Steerable 3D Urban Scene Generation with Layout Prior
+    Authors: Fan Lu, Kwan-Yee Lin, Yan Xu, Hongsheng Li, Guang Chen et al. (6 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2404.06780
+    ARXIV: 2404.06780
+    Record ID: semantic_scholar:1987694ee4eecc129a2a8fe345dd1c1aecac9473
+
+[11] 4Diffusion: Multi-view Video Diffusion Model for 4D Generation
+    Authors: Haiyu Zhang, Xinyuan Chen, Yaohui Wang, Xihui Liu, Yun-Hong Wang et al. (6 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2405.20674
+    ARXIV: 2405.20674
+    Record ID: semantic_scholar:1b412ae5392172c5e6e017481b29f6afd9d3ef8a
+
+[12] GT23D-Bench: A Comprehensive General Text-to-3D Generation Benchmark
+    Authors: Sitong Su, Xiao Cai, Lianli Gao, Pengpeng Zeng, Qinhong Du et al. (8 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2412.09997
+    ARXIV: 2412.09997
+    Record ID: semantic_scholar:1ede3e5a0cfbe13e11fb134e18ae5a45f730fe82
+
+[13] HunyuanVideo: A Systematic Framework For Large Video Generative Models
+    Authors: Weijie Kong, Qi Tian, Zijian Zhang, Rox Min, Zuozhuo Dai et al. (52 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2412.03603
+    ARXIV: 2412.03603
+    Record ID: semantic_scholar:1fa298e3f745099d39ca5bd088fcb62f87e8cc2f
+
+[14] Sculpt3D: Multi-View Consistent Text-to-3D Generation with Sparse 3D Prior
+    Authors: Cheng Chen, Xiaofeng Yang, Fan Yang, Chengzeng Feng, Zhoujie Fu et al. (8 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00974
+    ARXIV: 2403.09140
+    Record ID: semantic_scholar:20bb420095144ab4ee75e22b350ae9a01fbe4689
+
+[15] CRM: Single Image to 3D Textured Mesh with Convolutional Reconstruction Model
+    Authors: Zhengyi Wang, Yikai Wang, Yifei Chen, Chendong Xiang, Shuo Chen et al. (9 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2403.05034
+    ARXIV: 2403.05034
+    Record ID: semantic_scholar:2177967931f395f88faa630019e3cd9b1831ffc1
+
+[16] Sora as a World Model? A Complete Survey on Text-to-Video Generation
+    Authors: Fachrina Dewi Puspitasari, Chaoning Zhang, Joseph Cho, Adnan Haider, Noor Eman et al. (16 authors)
+    Year: 2024
+    Venue:
+    ARXIV: 2403.05131
+    Record ID: semantic_scholar:2373a84d6dab8d393222ea6c660bc993f09f07b0
+
+[17] Animate3D: Animating Any 3D Model with Multi-view Video Diffusion
+    Authors: Yanqin Jiang, Chaohui Yu, Chenjie Cao, Fan Wang, Weiming Hu et al. (6 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2407.11398
+    ARXIV: 2407.11398
+    Record ID: semantic_scholar:2db88f9b1ba1d31b0838c14f1bdbd261e7ee0800
+
+[18] Disco4D: Disentangled 4D Human Generation and Animation from a Single Image
+    Authors: H. Pang, Shuai Liu, Zhongang Cai, Lei Yang, Tianwei Zhang et al. (6 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.02452
+    ARXIV: 2409.17280
+    Record ID: semantic_scholar:2e7a0bf4dfe68ca87a0795ed5e8e34ff4601aca5
+
+[19] 4DGen: Grounded 4D Content Generation with Spatial-temporal Consistency
+    Authors: Yuyang Yin, Dejia Xu, Zhangyang Wang, Yao Zhao, Yunchao Wei
+    Year: 2023
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2312.17225
+    ARXIV: 2312.17225
+    Record ID: semantic_scholar:2f8d160c9317c354109744066b827422a3cf4174
+
+[20] MotionLCM: Real-time Controllable Motion Generation via Latent Consistency Model
+    Authors: Wen-Dao Dai, Ling-Hao Chen, Jingbo Wang, Jinpeng Liu, Bo Dai et al. (6 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2404.19759
+    ARXIV: 2404.19759
+    Record ID: semantic_scholar:31cf335ceee3e5ed44aaaf04bd5631645c7d954c
+
+[21] Emu3: Next-Token Prediction is All You Need
+    Authors: Xinlong Wang, Xiaosong Zhang, Zhengxiong Luo, Quan Sun, Yufeng Cui et al. (25 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2409.18869
+    ARXIV: 2409.18869
+    Record ID: semantic_scholar:3281d5a46c9de4f7d80c28f58f3aea03e445bd0a
+
+[22] InstantMesh: Efficient 3D Mesh Generation from a Single Image with Sparse-view Large Reconstruction Models
+    Authors: Jiale Xu, Weihao Cheng, Yiming Gao, Xintao Wang, Shenghua Gao et al. (6 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2404.07191
+    ARXIV: 2404.07191
+    Record ID: semantic_scholar:34276d30da30285f4ad348848ec746457730899a
+
+[23] STAG4D: Spatial-Temporal Anchored Generative 4D Gaussians
+    Authors: Yifei Zeng, Yanqin Jiang, Siyu Zhu, Yuanxun Lu, Youtian Lin et al. (9 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2403.14939
+    ARXIV: 2403.14939
+    Record ID: semantic_scholar:349e53ad4deaae7c4ed164988057981655b12843
+
+[24] MIMO: Controllable Character Video Synthesis with Spatial Decomposed Modeling
+    Authors: Yifang Men, Yuan Yao, Miaomiao Cui, Liefeng Bo
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.01973
+    ARXIV: 2409.16160
+    Record ID: semantic_scholar:37c6633ed3f305d8533b50de404fee6fe6a1b1d5
+
+[25] L4GM: Large 4D Gaussian Reconstruction Model
+    Authors: Jiawei Ren, Kevin Xie, Ashkan Mirzaei, Hanxue Liang, Xiaohui Zeng et al. (11 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2406.10324
+    ARXIV: 2406.10324
+    Record ID: semantic_scholar:3c13686750c9b2541bff9567ea440c96df810764
+
+[26] VidToMe: Video Token Merging for Zero-Shot Video Editing
+    Authors: Xirui Li, Chao Ma, Xiaokang Yang, Ming-Hsuan Yang
+    Year: 2023
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00715
+    ARXIV: 2312.10656
+    Record ID: semantic_scholar:3f7cca8661cfd609f18e7d0da0db3d4ab2b2e43a
+
+[27] CameraCtrl: Enabling Camera Control for Text-to-Video Generation
+    Authors: Hao He, Yinghao Xu, Yuwei Guo, Gordon Wetzstein, Bo Dai et al. (7 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2404.02101
+    ARXIV: 2404.02101
+    Record ID: semantic_scholar:3fc6184c72fd55b67409ef87493c333f15a33180
+
+[28] GenTron: Diffusion Transformers for Image and Video Generation
+    Authors: Shoufa Chen, Mengmeng Xu, Jiawei Ren, Yuren Cong, Sen He et al. (10 authors)
+    Year: 2023
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00616
+    ARXIV: 2312.04557
+    Record ID: semantic_scholar:457828497f66d3c4abb1f0ee0d0dc58ab74d01cd
+
+[29] Plan, Posture and Go: Towards Open-World Text-to-Motion Generation
+    Authors: Jinpeng Liu, Wen-Dao Dai, Chunyu Wang, Yiji Cheng, Yansong Tang et al. (6 authors)
+    Year: 2023
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2312.14828
+    ARXIV: 2312.14828
+    Record ID: semantic_scholar:4599d5af850da482f591a02a3b17d56e0d358771
+
+[30] Hunyuan3D 1.0: A Unified Framework for Text-to-3D and Image-to-3D Generation
+    Authors: Xianghui Yang, Huiwen Shi, Bowen Zhang, Fan Yang, Jiacheng Wang et al. (23 authors)
+    Year: 2024
+    Venue:
+    ARXIV: 2411.02293
+    Record ID: semantic_scholar:45bb193481d94aa1cca3a505a5f30d66f87ace16
+
+[31] Lodge: A Coarse to Fine Diffusion Network for Long Dance Generation Guided by the Characteristic Dance Primitives
+    Authors: Ronghui Li, Yuxiang Zhang, Yachao Zhang, Hongwen Zhang, Jie Guo et al. (8 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00151
+    ARXIV: 2403.10518
+    Record ID: semantic_scholar:4639ef0478d1a337710ab1ccd8156f990c8968e8
+
+[32] MotionWavelet: Human Motion Prediction via Wavelet Manifold Learning
+    Authors: Yuming Feng, Zhiyang Dou, Ling-Hao Chen, Yuan Liu, Tianyu Li et al. (10 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2411.16964
+    ARXIV: 2411.16964
+    Record ID: semantic_scholar:4914fa84e64fd27df343dc89d3392bdcf072ce74
+
+[33] CAT3D: Create Anything in 3D with Multi-View Diffusion Models
+    Authors: Ruiqi Gao, Aleksander Holynski, Philipp Henzler, Arthur Brussee, Ricardo Martin-Brualla et al. (8 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2405.10314
+    ARXIV: 2405.10314
+    Record ID: semantic_scholar:4987a76781f299be64ac43419c8b489ca1f4515b
+
+[34] Vidu4D: Single Generated Video to High-Fidelity 4D Reconstruction with Dynamic Gaussian Surfels
+    Authors: Yikai Wang, Xinzhou Wang, Zilong Chen, Zhengyi Wang, Fuchun Sun et al. (6 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2405.16822
+    ARXIV: 2405.16822
+    Record ID: semantic_scholar:49d81f5521860e1b9c4213622e238a7684eb79b3
+
+[35] DreamScene360: Unconstrained Text-to-3D Scene Generation with Panoramic Gaussian Splatting
+    Authors: Shijie Zhou, Zhiwen Fan, Dejia Xu, Haoran Chang, Pradyumna Chari et al. (9 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2404.06903
+    ARXIV: 2404.06903
+    Record ID: semantic_scholar:4a0baaa32e955093d36746d9b3569d95ceee58c5
+
+[36] CityCraft: A Real Crafter for 3D City Generation
+    Authors: Jie Deng, Wenhao Chai, Junsheng Huang, Zhonghan Zhao, Qixuan Huang et al. (12 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2406.04983
+    ARXIV: 2406.04983
+    Record ID: semantic_scholar:4b538c3e66f1456f5c7b4f7cb34523905d297a43
+
+[37] Motion2Motion: Cross-topology Motion Transfer with Sparse Correspondence
+    Authors: Lingxin Chen, Yuhong Zhang, Zixin Yin, Zhiyang Dou, Xin Chen et al. (8 authors)
+    Year: 2025
+    Venue: ACM SIGGRAPH Conference and Exhibition on Computer Graphics and Interactive Techniques in Asia
+    DOI: 10.1145/3757377.3763811
+    ARXIV: 2508.13139
+    Record ID: semantic_scholar:4c93791abadc10fe2d346b3af87d763af1c1abcf
+
+[38] Align Your Gaussians: Text-to-4D with Dynamic 3D Gaussians and Composed Diffusion Models
+    Authors: Huan Ling, S. Kim, Antonio Torralba, Sanja Fidler, Karsten Kreis
+    Year: 2023
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00819
+    ARXIV: 2312.13763
+    Record ID: semantic_scholar:50c51b595dfee1df1a0506ee7acef05ba01d3aa7
+
+[39] Training-Free Text-Guided Color Editing with Multi-Modal Diffusion Transformer
+    Authors: Zixin Yin, Xili Dai, Ling-Hao Chen, Deyu Zhou, Jianan Wang et al. (10 authors)
+    Year: 2025
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2508.09131
+    ARXIV: 2508.09131
+    Record ID: semantic_scholar:51421d030a75677799d96540c1c94bc22ccb5fea
+
+[40] Accelerating Auto-regressive Text-to-Image Generation with Training-free Speculative Jacobi Decoding
+    Authors: Yao Teng, Han Shi, Xian Liu, Xuefei Ning, Guohao Dai et al. (8 authors)
+    Year: 2024
+    Venue: International Conference on Learning Representations
+    DOI: 10.48550/arxiv.2410.01699
+    ARXIV: 2410.01699
+    Record ID: semantic_scholar:5370aa35ab6fc216284402435af6fc7940ec9677
+
+[41] Structured 3D Latents for Scalable and Versatile 3D Generation
+    Authors: Jianfeng Xiang, Zelong Lv, Sicheng Xu, Yu Deng, Ruicheng Wang et al. (9 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.02000
+    ARXIV: 2412.01506
+    Record ID: semantic_scholar:5666d551bc9f86e2f379ede8b8ffddbe4d1d53a8
+
+[42] UniVerse-1: Unified Audio-Video Generation via Stitching of Experts
+    Authors: Duomin Wang, Wei Zuo, Aojie Li, Ling-Hao Chen, Xinyao Liao et al. (10 authors)
+    Year: 2025
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2509.06155
+    ARXIV: 2509.06155
+    Record ID: semantic_scholar:5e63d8d16f358ef7b4af0f268bb1e53a2701e3dd
+
+[43] DreamGaussian4D: Generative 4D Gaussian Splatting
+    Authors: Jiawei Ren, Liang Pan, Jiaxiang Tang, Chi Zhang, Ang Cao et al. (7 authors)
+    Year: 2023
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2312.17142
+    ARXIV: 2312.17142
+    Record ID: semantic_scholar:65022cdf3cba83ca2000ce18e694ff54ce2ca787
+
+[44] UniEdit: A Unified Tuning-Free Framework for Video Motion and Appearance Editing
+    Authors: Jianhong Bai, Tianyu He, Yuchi Wang, Junliang Guo, Haoji Hu et al. (7 authors)
+    Year: 2024
+    Venue: ACM Multimedia
+    DOI: 10.1145/3746027.3755462
+    ARXIV: 2402.13185
+    Record ID: semantic_scholar:66a05b7405aa3591a8fb74e5958c8d6dc994606e
+
+[45] Robust Multi-Object 4D Generation for In-the-wild Videos
+    Authors: Wen-Hsuan Chu, Lei Ke, Jianmeng Liu, Mingxiao Huo, P. Tokmakov et al. (6 authors)
+    Year: 2025
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.02055
+    Record ID: semantic_scholar:674348f2fae61fa849a0cb318d903f98497f84e0
+
+[46] MotionLLM: Understanding Human Behaviors from Human Motions and Videos
+    Authors: Ling-Hao Chen, Shunlin Lu, Ailing Zeng, Hao Zhang, Benyou Wang et al. (7 authors)
+    Year: 2024
+    Venue: IEEE Transactions on Pattern Analysis and Machine Intelligence
+    DOI: 10.48550/arxiv.2405.20340
+    ARXIV: 2405.20340
+    Record ID: semantic_scholar:6a31399c39b8613e558b758439c7c3e146993d86
+
+[47] Step1X-3D: Towards High-Fidelity and Controllable Generation of Textured 3D Assets
+    Authors: Weiyu Li, Xuanyang Zhang, Zhengwentai Sun, Di Qi, Hao Li et al. (18 authors)
+    Year: 2025
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2505.07747
+    ARXIV: 2505.07747
+    Record ID: semantic_scholar:6da84f798de781b6dfa6308abffa00a5168099bc
+
+[48] UniAnimate: taming unified video diffusion models for consistent human image animation
+    Authors: Xiang Wang, Shiwei Zhang, Changxin Gao, Jiayu Wang, Xiaoqiang Zhou et al. (8 authors)
+    Year: 2024
+    Venue: Science China Information Sciences
+    DOI: 10.1007/s11432-024-4592-3
+    ARXIV: 2406.01188
+    Record ID: semantic_scholar:6ddedae42ab98883bec0a2259ab65ec71bebc409
+
+[49] Koala-36M : A Large-Scale Video Dataset Improving Consistency between Fine-Grained Conditions and Video Content
+    Authors: Qiuheng Wang, Yukai Shi, Jiarong Ou, Rui Chen, Ke Lin et al. (13 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.00789
+    ARXIV: 2410.08260
+    Record ID: semantic_scholar:6f004592aa9d3baa772f75a347720c1f2c6b5774
+
+[50] NVS-Solver: Video Diffusion Model as Zero-Shot Novel View Synthesizer
+    Authors: Meng You, Zhiyu Zhu, Hui Liu, Junhui Hou
+    Year: 2024
+    Venue: International Conference on Learning Representations
+    DOI: 10.48550/arxiv.2405.15364
+    ARXIV: 2405.15364
+    Record ID: semantic_scholar:704cb5f07665bcb30cbab06a55bbe92e0d50692e
+
+[51] Lumina-T2X: Transforming Text into Any Modality, Resolution, and Duration via Flow-based Large Diffusion Transformers
+    Authors: Peng Gao, Le Zhuo, Ziyi Lin, Chris Liu, Junsong Chen et al. (23 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2405.05945
+    ARXIV: 2405.05945
+    Record ID: semantic_scholar:722ae1415e102ff258d5cbf31cfaacd6fd31d99f
+
+[52] LatentMan : Generating Consistent Animated Characters using Image Diffusion Models
+    Authors: A. Eldesokey, Peter Wonka
+    Year: 2023
+    Venue: 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)
+    DOI: 10.1109/cvprw63382.2024.00746
+    ARXIV: 2312.07133
+    Record ID: semantic_scholar:76cabded6a80524976c32ad0df2690334cc50be1
+
+[53] CogVideoX: Text-to-Video Diffusion Models with An Expert Transformer
+    Authors: Zhuoyi Yang, Jiayan Teng, Wendi Zheng, Ming Ding, Shiyu Huang et al. (19 authors)
+    Year: 2024
+    Venue: International Conference on Learning Representations
+    DOI: 10.48550/arxiv.2408.06072
+    ARXIV: 2408.06072
+    Record ID: semantic_scholar:7b248d78573ccf0dca6aa2cec2743d3eccaa9d1a
+
+[54] EdgeRunner: Auto-regressive Auto-encoder for Artistic Mesh Generation
+    Authors: Jiaxiang Tang, Zhaoshuo Li, Zekun Hao, Xian Liu, Gang Zeng et al. (7 authors)
+    Year: 2024
+    Venue: International Conference on Learning Representations
+    DOI: 10.48550/arxiv.2409.18114
+    ARXIV: 2409.18114
+    Record ID: semantic_scholar:7ca3a03c4db6ae0dd65ad99109107f7466f1670d
+
+[55] Advances in 3D Generation: A Survey
+    Authors: Xiaoyu Li, Qi Zhang, Di Kang, Weihao Cheng, Yiming Gao et al. (10 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2401.17807
+    ARXIV: 2401.17807
+    Record ID: semantic_scholar:8231dfb2f5fbffa3816acad3dc75de8ecd74a4ac
+
+[56] 4Real-Video: Learning Generalizable Photo-Realistic 4D Video Diffusion
+    Authors: Chaoyang Wang, Peiye Zhuang, T. Ngo, W. Menapace, Aliaksandr Siarohin et al. (10 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.01651
+    ARXIV: 2412.04462
+    Record ID: semantic_scholar:8554969fc70d257ca13b02d73e68138d26056d7a
+
+[57] 4K4DGen: Panoramic 4D Generation at 4K Resolution
+    Authors: Renjie Li, Panwang Pan, Bangbang Yang, Dejia Xu, Shijie Zhou et al. (11 authors)
+    Year: 2024
+    Venue: International Conference on Learning Representations
+    DOI: 10.48550/arxiv.2406.13527
+    ARXIV: 2406.13527
+    Record ID: semantic_scholar:8657d8fac371a22b441494c2f43a881f64a392b5
+
+[58] Wan: Open and Advanced Large-Scale Video Generative Models
+    Authors: Ang Wang, Baole Ai, Bin Wen, Chaojie Mao, Chen-Wei Xie et al. (61 authors)
+    Year: 2025
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2503.20314
+    ARXIV: 2503.20314
+    Record ID: semantic_scholar:8877e9a5bf473404c35b758faa76905c202f0f36
+
+[59] SC4D: Sparse-Controlled Video-to-4D Generation and Motion Transfer
+    Authors: Zijie Wu, Chaohui Yu, Yanqin Jiang, Chenjie Cao, Fan Wang et al. (6 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2404.03736
+    ARXIV: 2404.03736
+    Record ID: semantic_scholar:8c6583a8334bb7688505d6f745a0dcf29203ee47
+
+[60] Panda-70M: Captioning 70M Videos with Multiple Cross-Modality Teachers
+    Authors: Tsai-Shien Chen, Aliaksandr Siarohin, W. Menapace, Ekaterina Deyneka, Hsiang-wei Chao et al. (11 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.01265
+    ARXIV: 2402.19479
+    Record ID: semantic_scholar:8eae862d9669e7001eeee17b49fba793df9672c4
+
+[61] UnCommon Objects in 3D
+    Authors: Xingchen Liu, Piyush Tayal, Jianyuan Wang, Jesus Zarzar, Tom Monnier et al. (13 authors)
+    Year: 2025
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.01316
+    ARXIV: 2501.07574
+    Record ID: semantic_scholar:8ee58b5c836b1065843b03181126e18e344da602
+
+[62] Photorealistic Video Generation with Diffusion Models
+    Authors: Agrim Gupta, Lijun Yu, Kihyuk Sohn, Xiuye Gu, Meera Hahn et al. (9 authors)
+    Year: 2023
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2312.06662
+    ARXIV: 2312.06662
+    Record ID: semantic_scholar:905ba940236b00bebb2fd348d4d932e7887b0c0a
+
+[63] Lumiere: A Space-Time Diffusion Model for Video Generation
+    Authors: Omer Bar-Tal, Hila Chefer, Omer Tov, Charles Herrmann, Roni Paiss et al. (14 authors)
+    Year: 2024
+    Venue: ACM SIGGRAPH Conference and Exhibition on Computer Graphics and Interactive Techniques in Asia
+    DOI: 10.1145/3680528.3687614
+    ARXIV: 2401.12945
+    Record ID: semantic_scholar:94f7d8bce3bb848d127c8f113afc5bb0243579df
+
+[64] GenXD: Generating Any 3D and 4D Scenes
+    Authors: Yuyang Zhao, Chung-Ching Lin, K. Lin, Zhiwen Yan, Linjie Li et al. (9 authors)
+    Year: 2024
+    Venue: International Conference on Learning Representations
+    DOI: 10.48550/arxiv.2411.02319
+    ARXIV: 2411.02319
+    Record ID: semantic_scholar:96aa0fcc8dc647c3ccf67bcf4bd843c2831391a6
+
+[65] Snap Video: Scaled Spatiotemporal Transformers for Text-to-Video Synthesis
+    Authors: W. Menapace, Aliaksandr Siarohin, Ivan Skorokhodov, Ekaterina Deyneka, Tsai-Shien Chen et al. (11 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00672
+    ARXIV: 2402.14797
+    Record ID: semantic_scholar:97cb2eb0d0517e34bf4202f0593600bb6fa043cd
+
+[66] V3D: Video Diffusion Models are Effective 3D Generators
+    Authors: Zilong Chen, Yikai Wang, Feng Wang, Zhengyi Wang, Huaping Liu
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2403.06738
+    ARXIV: 2403.06738
+    Record ID: semantic_scholar:9db25ca30dcc8aa75c034ccaee0f6ee2ca934956
+
+[67] Diffusion4D: Fast Spatial-temporal Consistent 4D Generation via Video Diffusion Models
+    Authors: Hanwen Liang, Yuyang Yin, Dejia Xu, Hanxue Liang, Zhangyang Wang et al. (8 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2405.16645
+    ARXIV: 2405.16645
+    Record ID: semantic_scholar:a0967d65bc6df56f70d889430ae7c70f5fc3955e
+
+[68] MotionCraft: Crafting Whole-Body Motion with Plug-and-Play Multimodal Controls
+    Authors: Yuxuan Bian, Ailing Zeng, Xu Ju, Xian Liu, Zhaoyang Zhang et al. (7 authors)
+    Year: 2024
+    Venue: AAAI Conference on Artificial Intelligence
+    DOI: 10.1609/aaai.v39i2.32183
+    ARXIV: 2407.21136
+    Record ID: semantic_scholar:a74e0cd895bd43f7d9e4d548c76712d0dc1b5e9d
+
+[69] EG4D: Explicit Generation of 4D Object without Score Distillation
+    Authors: Qi Sun, Zhiyang Guo, Ziyu Wan, J. Yan, Shengming Yin et al. (8 authors)
+    Year: 2024
+    Venue: International Conference on Learning Representations
+    DOI: 10.48550/arxiv.2405.18132
+    ARXIV: 2405.18132
+    Record ID: semantic_scholar:a7e03e39085e1c2760fe366470cffacba83a24f1
+
+[70] Instruct 4D-to-4D: Editing 4D Scenes as Pseudo-3D Scenes Using 2D Diffusion
+    Authors: Linzhan Mou, Junkun Chen, Yu-Xiong Wang
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.01907
+    ARXIV: 2406.09402
+    Record ID: semantic_scholar:af952ea5949c16ff9bffecb1d54ae29843f7cac2
+
+[71] T2V-CompBench: A Comprehensive Benchmark for Compositional Text-to-video Generation
+    Authors: Kaiyue Sun, Kaiyi Huang, Xian Liu, Yue Wu, Zihang Xu et al. (7 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.00787
+    ARXIV: 2407.14505
+    Record ID: semantic_scholar:af9a0a099c00629431a1d9096001570e60974faf
+
+[72] Pay Attention and Move Better: Harnessing Attention for Interactive Motion Generation and Training-free Editing
+    Authors: Ling-Hao Chen, Wenxun Dai, Xuan Ju, Shunlin Lu, Lei Zhang
+    Year: 2024
+    Venue:
+    ARXIV: 2410.18977
+    Record ID: semantic_scholar:b23565af3daebee5fd495339b584e38c48be4b7e
+
+[73] Cosmos World Foundation Model Platform for Physical AI
+    Authors: N. Agarwal, Arslan Ali, M. Bala, Yogesh Balaji, Erik Barker et al. (77 authors)
+    Year: 2025
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2501.03575
+    ARXIV: 2501.03575
+    Record ID: semantic_scholar:b95baf93d1cfb406b50aa370ce5ba18788b5891d
+
+[74] WorldSimBench: Towards Video Generation Models as World Simulators
+    Authors: Yiran Qin, Zhelun Shi, Jiwen Yu, Xijun Wang, Enshen Zhou et al. (13 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2410.18072
+    ARXIV: 2410.18072
+    Record ID: semantic_scholar:bc2ddba47a9d6b378abd8a8584849f3e4c410f24
+
+[75] ViewCrafter: Taming Video Diffusion Models for High-fidelity Novel View Synthesis
+    Authors: Wangbo Yu, Jinbo Xing, Li Yuan, Wenbo Hu, Xiaoyu Li et al. (10 authors)
+    Year: 2024
+    Venue: IEEE Transactions on Pattern Analysis and Machine Intelligence
+    DOI: 10.48550/arxiv.2409.02048
+    ARXIV: 2409.02048
+    Record ID: semantic_scholar:bde2a93e64558fae1b447e6beec0d3624dfc790a
+
+[76] TC4D: Trajectory-Conditioned Text-to-4D Generation
+    Authors: Sherwin Bahmani, Xian Liu, Yifan Wang, Ivan Skorokhodov, Victor Rong et al. (12 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2403.17920
+    ARXIV: 2403.17920
+    Record ID: semantic_scholar:bef2647d7eef07049baf63caa7952eb127a10fe2
+
+[77] Genie: Generative Interactive Environments
+    Authors: Jake Bruce, Michael Dennis, Ashley Edwards, Jack Parker-Holder, Yuge Shi et al. (25 authors)
+    Year: 2024
+    Venue: International Conference on Machine Learning
+    DOI: 10.48550/arxiv.2402.15391
+    ARXIV: 2402.15391
+    Record ID: semantic_scholar:c064de2c71ebc5cf05493f49dc312b033c36b3b9
+
+[78] DreamScene4D: Dynamic Multi-Object Scene Generation from Monocular Videos
+    Authors: Wen-Hsuan Chu, Lei Ke, Katerina Fragkiadaki
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2405.02280
+    ARXIV: 2405.02280
+    Record ID: semantic_scholar:c1be310f3c4edc4bd889815f20f075e1761db941
+
+[79] Fréchet Video Motion Distance: A Metric for Evaluating Motion Consistency in Videos
+    Authors: Jia-He Liu, Youran Qu, Qi Yan, Xiaohui Zeng, Lele Wang et al. (6 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2407.16124
+    ARXIV: 2407.16124
+    Record ID: semantic_scholar:c3d746a8ae633431cdd64aa285c627f8ef847f42
+
+[80] Compositional 3D-aware Video Generation with LLM Director
+    Authors: Hanxin Zhu, Tianyu He, Anni Tang, Junliang Guo, Zhibo Chen et al. (6 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2409.00558
+    ARXIV: 2409.00558
+    Record ID: semantic_scholar:c51f822d9fa458c298c6b3182e5c3a3d09ecd881
+
+[81] TextCraftor: Your Text Encoder can be Image Quality Controller
+    Authors: Yanyu Li, Xian Liu, Anil Kag, Ju Hu, Yerlan Idelbayev et al. (9 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00763
+    ARXIV: 2403.18978
+    Record ID: semantic_scholar:cb64df887aa5de75703e1b8b80ff59ff3fc029a9
+
+[82] AToM: Amortized Text-to-Mesh using 2D Diffusion
+    Authors: G. Qian, Junli Cao, Aliaksandr Siarohin, Yash Kant, Chaoyang Wang et al. (15 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2402.00867
+    ARXIV: 2402.00867
+    Record ID: semantic_scholar:ce2edcc6a0ef7592c385c5d8fd0924f79707e223
+
+[83] 4Real: Towards Photorealistic 4D Scene Generation via Video Diffusion Models
+    Authors: Heng Yu, Chaoyang Wang, Peiye Zhuang, W. Menapace, Aliaksandr Siarohin et al. (9 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2406.07472
+    ARXIV: 2406.07472
+    Record ID: semantic_scholar:d097e5d8d277ab62671abf9ef1cb08f4966a0c46
+
+[84] Multi-Track Timeline Control for Text-Driven 3D Human Motion Generation
+    Authors: Mathis Petrovich, O. Litany, Umar Iqbal, Michael J. Black, Gul Varol et al. (7 authors)
+    Year: 2024
+    Venue: 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)
+    DOI: 10.1109/cvprw63382.2024.00197
+    ARXIV: 2401.08559
+    Record ID: semantic_scholar:d135b38816993a9110f6d2aadd65ca371489ed03
+
+[85] Zero-shot High-fidelity and Pose-controllable Character Animation
+    Authors: Bingwen Zhu, Fanyi Wang, Tianyi Lu, Peng Liu, Jingwen Su et al. (10 authors)
+    Year: 2024
+    Venue: International Joint Conference on Artificial Intelligence
+    DOI: 10.24963/ijcai.2024/198
+    ARXIV: 2404.13680
+    Record ID: semantic_scholar:d200317d4292824dde68c8e3341a51fadf4890a4
+
+[86] Open-MAGVIT2: An Open-Source Project Toward Democratizing Auto-regressive Visual Generation
+    Authors: Zhuoyan Luo, Fengyuan Shi, Yixiao Ge, Yujiu Yang, Limin Wang et al. (6 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2409.04410
+    ARXIV: 2409.04410
+    Record ID: semantic_scholar:d42c930bb977bcc7543dd350f9129404198e7c6a
+
+[87] DreamMesh4D: Video-to-4D Generation with Sparse-Controlled Gaussian-Mesh Hybrid Representation
+    Authors: Zhiqi Li, Yiming Chen, Peidong Liu
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2410.06756
+    ARXIV: 2410.06756
+    Record ID: semantic_scholar:d4e8b741da00041116fb166ef628b54c79896fd4
+
+[88] Is Sora a World Simulator? A Comprehensive Survey on General World Models and Beyond
+    Authors: Zheng Zhu, Xiaofeng Wang, Wangbo Zhao, Chen Min, Nianchen Deng et al. (17 authors)
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2405.03520
+    ARXIV: 2405.03520
+    Record ID: semantic_scholar:d7fbdba317e195c3b49dbcdb14b7b52a05bfb3f4
+
+[89] Unique3D: High-Quality and Efficient 3D Mesh Generation from a Single Image
+    Authors: Kailu Wu, Fangfu Liu, Zhihan Cai, Runjie Yan, Hanyang Wang et al. (8 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2405.20343
+    ARXIV: 2405.20343
+    Record ID: semantic_scholar:dac2d86182abcc25ad66ec1a73646ca06087772f
+
+[90] DreamScene: 3D Gaussian-based Text-to-3D Scene Generation via Formation Pattern Sampling
+    Authors: Haoran Li, Haolin Shi, Wenli Zhang, Wenjun Wu, Yong Liao et al. (8 authors)
+    Year: 2024
+    Venue: European Conference on Computer Vision
+    DOI: 10.48550/arxiv.2404.03575
+    ARXIV: 2404.03575
+    Record ID: semantic_scholar:e61a32cf3b253011cea5d4d88429ece876a1b6ae
+
+[91] ConsistEdit: Highly Consistent and Precise Training-free Visual Editing
+    Authors: Zixin Yin, Ling-Hao Chen, Lionel M. Ni, Xili Dai
+    Year: 2025
+    Venue: ACM SIGGRAPH Conference and Exhibition on Computer Graphics and Interactive Techniques in Asia
+    DOI: 10.1145/3757377.3763909
+    ARXIV: 2510.17803
+    Record ID: semantic_scholar:e855f8f223f6beec266d1bd363ddfbccde1125a1
+
+[92] 4D-DRESS: A 4D Dataset of Real-World Human Clothing with Semantic Annotations
+    Authors: Wenbo Wang, Hsuan-I Ho, Chen Guo, Boxiang Rong, Artur Grigorev et al. (8 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00059
+    ARXIV: 2404.18630
+    Record ID: semantic_scholar:ea63bac4a58dc7b03b09e78cfed60b1c057b99cd
+
+[93] Movie Gen: A Cast of Media Foundation Models
+    Authors: Adam Polyak, Amit Zohar, Andrew Brown, Andros Tjandra, Animesh Sinha et al. (88 authors)
+    Year: 2024
+    Venue:
+    ARXIV: 2410.13720
+    Record ID: semantic_scholar:ed92a7be6b2acc36baf0ed43454a97dbade0c893
+
+[94] A Survey On Text-to-3D Contents Generation In The Wild
+    Authors: Che Jiang
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2405.09431
+    ARXIV: 2405.09431
+    Record ID: semantic_scholar:edf8212e7255abb586428161f3c6c03a92998527
+
+[95] Direct3D: Scalable Image-to-3D Generation via 3D Latent Diffusion Transformer
+    Authors: Shuang Wu, Youtian Lin, Feihu Zhang, Yifei Zeng, Jingxi Xu et al. (8 authors)
+    Year: 2024
+    Venue: Neural Information Processing Systems
+    DOI: 10.48550/arxiv.2405.14832
+    ARXIV: 2405.14832
+    Record ID: semantic_scholar:f3a2e9a43ef9af111d0ccf74d3efa08607f00575
+
+[96] VP3D: Unleashing 2D Visual Prompt for Text-to-3D Generation
+    Authors: Yang Chen, Yingwei Pan, Haibo Yang, Ting Yao, Tao Mei
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.00468
+    ARXIV: 2403.17001
+    Record ID: semantic_scholar:f6734767dc4eb03caf3286b46faf16bf1469795c
+
+[97] PI3D: Efficient Text-to-3D Generation with Pseudo-Image Diffusion
+    Authors: Ying-Tian Liu, Yuanchen Guo, Guan Luo, Heyi Sun, Wei Yin et al. (6 authors)
+    Year: 2023
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52733.2024.01882
+    ARXIV: 2312.09069
+    Record ID: semantic_scholar:f8076180de4e6ea73f556cb6d9c2406e8f2b1b12
+
+[98] AvatarGO: Zero-shot 4D Human-Object Interaction Generation and Animation
+    Authors: Yukang Cao, Liang Pan, Kai Han, K. K. Wong, Ziwei Liu
+    Year: 2024
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2410.07164
+    ARXIV: 2410.07164
+    Record ID: semantic_scholar:fa56b986d55f647de96ab49083f231877ceebd0a
+
+[99] Sherpa3D: Boosting High-Fidelity Text-to-3D Generation via Coarse 3D Prior
+    Authors: Fangfu Liu, Diankun Wu, Yi Wei, Yongming Rao, Yueqi Duan
+    Year: 2023
+    Venue: arXiv.org
+    DOI: 10.48550/arxiv.2312.06655
+    ARXIV: 2312.06655
+    Record ID: semantic_scholar:fe1b3f0d074974ce946f10f3bbf52e8351bc0156
+
+[100] ScaMo: Exploring the Scaling Law in Autoregressive Motion Generation Model
+    Authors: Shunlin Lu, Jingbo Wang, Zeyu Lu, Ling-Hao Chen, Wenxun Dai et al. (9 authors)
+    Year: 2024
+    Venue: Computer Vision and Pattern Recognition
+    DOI: 10.1109/cvpr52734.2025.02595
+    ARXIV: 2412.14559
+    Record ID: semantic_scholar:fe1cf34f0f2dfcac81ab9d9f4c47ae8495cbb115
