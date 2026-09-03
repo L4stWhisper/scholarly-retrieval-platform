@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "scholarly-retrieval": {
+      "type": "stdio",
+      "command": "scholar-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

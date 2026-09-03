@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scholarly Retrieval"
+  short_description: "Search papers and trace citations with provenance"
+  default_prompt: "Use $scholarly-research to find relevant papers and trace their citation relationships with source-aware reporting."

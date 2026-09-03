@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+pytest-cache-files-*/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+dist/
+build/
+.wheel-check/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.log
+.env
+
+# Local Agent/client state; publish the reusable skill and .mcp.json instead.
+.claude/
+.agents/
+.codex/
+
+# Locally obtained papers and generated research outputs are not redistributable fixtures.
+papers/

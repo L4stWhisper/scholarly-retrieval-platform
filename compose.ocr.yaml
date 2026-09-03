@@ -1,0 +1,36 @@
+services:
+  grobid:
+    image: ${GROBID_IMAGE:-grobid/grobid:0.9.1-crf}
+    init: true
+    ulimits:
+      core: 0
+    ports:
+      - "127.0.0.1:8070:8070"
+      - "127.0.0.1:8071:8071"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8071'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  scholar-ocr:
+    build:
+      context: .
+      dockerfile: Dockerfile.ocr
+    init: true
+    environment:
+      SCHOLAR_API_KEYS: ${SCHOLAR_API_KEYS:-}
+      SCHOLAR_DB_PATH: /data/scholar.sqlite3
+      SCHOLAR_RUN_OCR_TESTS: ${SCHOLAR_RUN_OCR_TESTS:-0}
+      SCHOLAR_TEST_GROBID_URL: http://grobid:8070
+    volumes:
+      - scholar-ocr-data:/data
+    depends_on:
+      grobid:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+volumes:
+  scholar-ocr-data:

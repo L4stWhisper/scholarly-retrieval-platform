@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a reproducible defect in a provider, Library, CLI, API, or MCP entry point.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Include a minimal command/request with all secrets removed.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: reports
+    attributes:
+      label: Provider reports
+      description: Paste relevant status/error_code fields; redact tokens and private queries.

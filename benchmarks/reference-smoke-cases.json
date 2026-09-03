@@ -1,0 +1,56 @@
+{
+  "schema_version": "1",
+  "purpose": "Real-data functional smoke cases; not an adjudicated scientific gold set.",
+  "cases": [
+    {
+      "case_id": "alphafold-pmc8371605-references",
+      "observed_at": "2026-09-02",
+      "seed_identifier": "10.1038/s41586-021-03819-2",
+      "pmcid": "PMC8371605",
+      "source_page": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8371605/",
+      "fulltext_api": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC8371605/fullTextXML?format=xml",
+      "sources": ["openalex", "crossref", "europe_pmc"],
+      "observed": {
+        "bibliography_entry_count": 84,
+        "cited_entry_count": 74,
+        "bibliography_doi_count": 65,
+        "cited_doi_count": 56,
+        "provider_relation_record_count": 86,
+        "provider_relation_doi_overlap": 65,
+        "provider_relation_doi_recall": 1.0,
+        "sample_size": 5,
+        "link_success_count": 5,
+        "path_agreement_count": 5,
+        "graph_truncated": false
+      },
+      "sample": [
+        {
+          "reference_id": "CR1",
+          "doi": "10.12688/f1000research.25097.1",
+          "target_record_id": "openalex:W3038329114"
+        },
+        {
+          "reference_id": "CR4",
+          "doi": "10.1038/nsb1101-923",
+          "target_record_id": "openalex:W1605294025"
+        },
+        {
+          "reference_id": "CR5",
+          "doi": "10.1093/nar/gky949",
+          "target_record_id": "openalex:W2898210859"
+        },
+        {
+          "reference_id": "CR6",
+          "doi": "10.1093/nar/gkz1035",
+          "target_record_id": "openalex:W2984894304"
+        },
+        {
+          "reference_id": "CR7",
+          "doi": "10.1038/s41592-019-0437-4",
+          "target_record_id": "openalex:W2949342052"
+        }
+      ],
+      "interpretation": "Counts can drift as providers update. The live contract enforces lower-bound and agreement invariants, not this exact snapshot."
+    }
+  ]
+}

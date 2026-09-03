@@ -1,0 +1,63 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - scholar-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    init: true
+    environment:
+      SCHOLAR_API_HOST: 0.0.0.0
+      SCHOLAR_API_KEYS: ${SCHOLAR_API_KEYS:?set SCHOLAR_API_KEYS}
+      SCHOLAR_DB_PATH: ""
+      SCHOLAR_REDIS_URL: redis://redis:6379/0
+      SCHOLAR_REDIS_PREFIX: ${SCHOLAR_REDIS_PREFIX:-scholar}
+      SCHOLAR_JOB_TTL_SECONDS: ${SCHOLAR_JOB_TTL_SECONDS:-86400}
+      SCHOLAR_RATE_LIMIT_PER_MINUTE: ${SCHOLAR_RATE_LIMIT_PER_MINUTE:-60}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build: .
+    command: ["scholar-worker"]
+    init: true
+    environment:
+      SCHOLAR_DB_PATH: ""
+      SCHOLAR_REDIS_URL: redis://redis:6379/0
+      SCHOLAR_REDIS_PREFIX: ${SCHOLAR_REDIS_PREFIX:-scholar}
+      SCHOLAR_JOB_TTL_SECONDS: ${SCHOLAR_JOB_TTL_SECONDS:-86400}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  gateway:
+    image: nginx:1.28-alpine
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./deploy/distributed-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  scholar-redis-data:
