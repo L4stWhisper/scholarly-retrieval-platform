@@ -88,7 +88,9 @@ def test_graph_expand_help_exposes_all_budget_controls() -> None:
     help_text = strip_ansi(result.stdout)
 
     assert result.exit_code == 0
-    assert "IDENTIFIERS..." in help_text
+    # Typer versions render an optional variadic argument as either
+    # ``IDENTIFIERS...`` or ``[IDENTIFIERS]...``; the semantic name is stable.
+    assert "IDENTIFIERS" in help_text
     assert "--direction" in help_text
     assert "--depth" in help_text
     assert "--frontier-cap" in help_text
