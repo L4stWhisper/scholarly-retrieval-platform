@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+from click.utils import strip_ansi
 from typer.testing import CliRunner
 
 import scholarly_retrieval.cli as cli_module
@@ -84,19 +85,20 @@ def test_inverted_year_range_is_reported_before_network_io() -> None:
 
 def test_graph_expand_help_exposes_all_budget_controls() -> None:
     result = runner.invoke(app, ["graph", "expand", "--help"])
+    help_text = strip_ansi(result.stdout)
 
     assert result.exit_code == 0
-    assert "IDENTIFIERS..." in result.stdout
-    assert "--direction" in result.stdout
-    assert "--depth" in result.stdout
-    assert "--frontier-cap" in result.stdout
-    assert "--top-k" in result.stdout
-    assert "--per-node-limit" in result.stdout
-    assert "--stop-rule" in result.stdout
-    assert "--year-from" in result.stdout
-    assert "--year-to" in result.stdout
-    assert "--work-type" in result.stdout
-    assert "--max-runtime-seconds" in result.stdout
+    assert "IDENTIFIERS..." in help_text
+    assert "--direction" in help_text
+    assert "--depth" in help_text
+    assert "--frontier-cap" in help_text
+    assert "--top-k" in help_text
+    assert "--per-node-limit" in help_text
+    assert "--stop-rule" in help_text
+    assert "--year-from" in help_text
+    assert "--year-to" in help_text
+    assert "--work-type" in help_text
+    assert "--max-runtime-seconds" in help_text
 
 
 def test_graph_expand_rejects_inverted_years_without_traceback() -> None:
@@ -112,25 +114,27 @@ def test_graph_expand_rejects_inverted_years_without_traceback() -> None:
 
 def test_related_help_exposes_text_seed_feedback_and_rrf_controls() -> None:
     result = runner.invoke(app, ["related", "--help"])
+    help_text = strip_ansi(result.stdout)
 
     assert result.exit_code == 0
-    assert "--text" in result.stdout
-    assert "--positive" in result.stdout
-    assert "--negative" in result.stdout
-    assert "--rrf-k" in result.stdout
+    assert "--text" in help_text
+    assert "--positive" in help_text
+    assert "--negative" in help_text
+    assert "--rrf-k" in help_text
 
 
 def test_search_help_exposes_advanced_filters_and_sort() -> None:
     result = runner.invoke(app, ["search", "--help"])
+    help_text = strip_ansi(result.stdout)
 
     assert result.exit_code == 0
-    assert "--title" in result.stdout
-    assert "--abstract" in result.stdout
-    assert "--venue" in result.stdout
-    assert "--field" in result.stdout
-    assert "--min-citations" in result.stdout
-    assert "--sort" in result.stdout
-    assert "--format" in result.stdout
+    assert "--title" in help_text
+    assert "--abstract" in help_text
+    assert "--venue" in help_text
+    assert "--field" in help_text
+    assert "--min-citations" in help_text
+    assert "--sort" in help_text
+    assert "--format" in help_text
 
 
 def test_table_output_renders_papers_and_is_legacy_console_safe() -> None:
