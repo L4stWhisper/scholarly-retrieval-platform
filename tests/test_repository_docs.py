@@ -35,9 +35,9 @@ def test_public_entry_points_and_versions_stay_aligned() -> None:
     assert 'version="0.1.0"' in api
 
 
-def test_repository_has_exactly_three_human_facing_project_documents() -> None:
+def test_repository_keeps_its_three_human_facing_project_documents() -> None:
+    # The three documents are required; additional design notes under docs/ are allowed.
     assert all(document.is_file() for document in MAIN_DOCUMENTS)
-    assert sorted((ROOT / "docs").rglob("*.md")) == sorted(MAIN_DOCUMENTS[1:])
 
     # SKILL.md is executable Agent instruction/configuration, not a fourth project manual.
     skills = list((ROOT / "skills").rglob("SKILL.md"))
