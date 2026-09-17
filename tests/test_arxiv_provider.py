@@ -33,7 +33,7 @@ def test_search_constructs_official_query_and_parses_atom() -> None:
     async def scenario() -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             query = parse_qs(request.url.query.decode())
-            assert 'all:"citation graph"' in query["search_query"][0]
+            assert 'all:"citation" AND all:"graph"' in query["search_query"][0]
             assert 'au:"Ada"' in query["search_query"][0]
             assert "submittedDate:[202001010000 TO 202412312359]" in query["search_query"][0]
             assert query["max_results"] == ["1"]

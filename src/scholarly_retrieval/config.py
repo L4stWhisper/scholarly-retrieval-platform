@@ -28,6 +28,7 @@ def credential_status() -> dict[str, dict[str, bool]]:
     """Report presence only; secret values must never enter logs or CLI output."""
 
     return {
+        "ads": {"api_token_configured": bool(os.getenv("ADS_API_TOKEN"))},
         "openalex": {
             "api_key_configured": bool(os.getenv("OPENALEX_API_KEY")),
             "contact_configured": bool(os.getenv("OPENALEX_MAILTO")),

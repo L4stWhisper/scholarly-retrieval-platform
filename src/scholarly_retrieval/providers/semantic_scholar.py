@@ -100,8 +100,17 @@ class SemanticScholarProvider(ScholarlyProvider):
             store=store,
             policy=RetryPolicy(
                 cache_ttl_seconds=3600,
-                min_interval_seconds=1.0,
+                # The documented introductory keyed limit is one request per
+                # second. Anonymous traffic shares a pool and may be throttled
+                # even below that rate, so use conservative pacing plus a real
+                # bounded exponential retry window for both modes.
+                min_interval_seconds=1.1,
                 max_concurrency=1,
+                max_attempts=5,
+                base_delay_seconds=2.0,
+                max_delay_seconds=30.0,
+                max_retry_after_seconds=120.0,
+                jitter_ratio=0.25,
             ),
         )
 

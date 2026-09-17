@@ -7,8 +7,23 @@ from click.utils import strip_ansi
 from typer.testing import CliRunner
 
 import scholarly_retrieval.cli as cli_module
-from scholarly_retrieval.cli import _console_safe, _json_for_output, _table_for_result, app
-from scholarly_retrieval.models import Author, Paper, ReferenceExtractionResult, SourceRecord
+from scholarly_retrieval.cli import (
+    _audit_for_result,
+    _console_safe,
+    _json_for_output,
+    _reading_for_result,
+    _table_for_result,
+    app,
+)
+from scholarly_retrieval.models import (
+    Author,
+    Paper,
+    ProviderContribution,
+    ProviderReport,
+    ReferenceExtractionResult,
+    RunStatus,
+    SourceRecord,
+)
 
 runner = CliRunner()
 
@@ -162,6 +177,123 @@ def test_table_output_renders_papers_and_is_legacy_console_safe() -> None:
     assert "openalex:W1" in rendered
     assert "Ada Lovelace" in rendered
     assert "\\xdcber" in safe
+
+
+def test_reading_output_lists_all_papers_without_diagnostics() -> None:
+    papers = [
+        Paper(
+            record_id=f"openalex:W{index}",
+            title=f"Auditable citation {index}",
+            publication_year=2026,
+            source_records=[SourceRecord(provider="openalex", source_record_id=f"W{index}")],
+        )
+        for index in range(25)
+    ]
+    result = SimpleNamespace(
+        operation="citations",
+        status=RunStatus.PARTIAL,
+        papers=papers,
+        raw_record_count=31,
+        work_family_count=25,
+        provider_reports=[
+            ProviderReport(
+                provider="openalex",
+                operation="citations",
+                status=RunStatus.COMPLETE,
+                retrieved_count=25,
+                total_available=30,
+            ),
+            ProviderReport(
+                provider="semantic_scholar",
+                operation="citations",
+                status=RunStatus.THROTTLED,
+                error_code="http_429",
+                error_message="rate limited",
+            ),
+        ],
+        provider_contributions=[
+            ProviderContribution(
+                provider="openalex",
+                raw_record_count=31,
+                canonical_record_count=25,
+                unique_canonical_count=19,
+                overlap_canonical_count=6,
+                result_share=1,
+            )
+        ],
+    )
+
+    rendered = _audit_for_result(result)
+
+    assert "25 篇" in rendered
+    assert "openalex" in rendered
+    assert "http_429" not in rendered
+    assert "rate limited" not in rendered
+    assert "raw=" not in rendered
+    assert "omitted" not in rendered
+    assert "Auditable citation 24" in rendered
+    assert "2026" not in rendered
+
+
+def test_citations_defaults_to_compact_audit_output(monkeypatch) -> None:
+    class AuditService:
+        async def citations(self, _identifier, *, limit, sources):
+            assert limit == 100
+            assert sources == ["openalex"]
+            return SimpleNamespace(
+                operation="citations",
+                status=RunStatus.COMPLETE,
+                papers=[Paper(record_id="openalex:W1", title="Citation Graph")],
+                raw_record_count=1,
+                work_family_count=1,
+                provider_reports=[],
+                provider_contributions=[],
+            )
+
+        async def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(cli_module, "ScholarService", AuditService)
+
+    result = runner.invoke(app, ["citations", "W0", "--source", "openalex"])
+
+    assert result.exit_code == 0
+    assert "1 篇" in result.stdout
+    assert "Citation Graph" in result.stdout
+    assert '"provider_reports"' not in result.stdout
+
+
+def test_reading_modes_preserve_full_titles_and_provider_link_association() -> None:
+    title = "A very long paper title " * 8
+    paper = Paper(
+        record_id="fixture:1",
+        title=title,
+        authors=[Author(name="Ada Lovelace")],
+        publication_year=2026,
+        venue="Example Conference",
+        landing_page_url="https://example.org/paper",
+        source_records=[
+            SourceRecord(
+                provider="openalex", source_record_id="W1", source_url="https://openalex.org/W1"
+            ),
+            SourceRecord(
+                provider="semantic_scholar",
+                source_record_id="s1",
+                source_url="https://www.semanticscholar.org/paper/s1",
+            ),
+        ],
+    )
+    result = SimpleNamespace(papers=[paper])
+    compact = _reading_for_result(result)
+    detailed = _reading_for_result(result, detailed=True)
+    assert paper.title in compact
+    assert "openalex | https://openalex.org/W1" in compact
+    assert "semantic_scholar | https://www.semanticscholar.org/paper/s1" in compact
+    assert "Ada Lovelace" not in compact
+    assert "Ada Lovelace" in detailed
+    assert "2026" in detailed
+    assert "Example Conference" in detailed
+    assert "0 篇" in _reading_for_result(SimpleNamespace(papers=[]))
 
 
 def test_search_table_option_uses_shared_library_result(monkeypatch) -> None:

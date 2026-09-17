@@ -91,11 +91,16 @@ $env:SCHOLAR_ENV_FILE = "D:\github_project\scholarly_retrieval_platform\.env"
 | `OPENALEX_API_KEY` / `OPENALEX_MAILTO` | OpenAlex 正式配额与联系邮箱 |
 | `SEMANTIC_SCHOLAR_API_KEY` | 提高 Semantic Scholar 稳定性/配额 |
 | `SERPAPI_API_KEY` | 启用可选 Google Scholar/SerpApi Provider |
+| `ADS_API_TOKEN` | 启用可选 NASA ADS Provider；在 ADS 账户设置中生成 token |
 | `OPENCITATIONS_ACCESS_TOKEN` | OpenCitations 推荐 token |
 | `SCHOLAR_DB_PATH` | 启用 SQLite 审计、缓存和结果持久化 |
 | `SCHOLAR_RUN_LIVE_TESTS=1` | 显式启用真实公网测试 |
 
 `scholar doctor` 只报告凭证是否存在，不显示凭证值。
+
+Semantic Scholar 未配置 key 时使用共享匿名配额，持续 429 即使指数退避也未必恢复。此时检查
+`provider_reports[].context.attempt_count` 和 `retry_delays` 可确认实际重试；申请 key 才能获得独立的
+初始 1 request/second 配额。重复实验建议同时设置 `SCHOLAR_DB_PATH`，以复用成功响应缓存。
 
 ## 五分钟完成四种检索
 
@@ -104,6 +109,10 @@ $env:SCHOLAR_ENV_FILE = "D:\github_project\scholarly_retrieval_platform\.env"
 ```powershell
 scholar search "retrieval augmented generation" --limit 5 --format table
 ```
+
+关键词检索会从每个来源拉取最多 `limit × 3`（上限 100）的候选，完成跨源去重后，用来源名次 RRF、
+标题/摘要词项覆盖和多源一致性做软融合，再截取最终 `limit`。软融合只调整顺序，不按缺词硬删除候选；
+做系统综述时应提高 `--limit` 并拆分同义词/缩写查询，不能把单次 Top-N 当作完整召回。
 
 ### 2. 高级检索
 
@@ -128,7 +137,26 @@ scholar references "10.1038/s41586-021-03819-2" --limit 10
 
 # 后来的论文 -> seed
 scholar citations "10.1038/s41586-021-03819-2" --limit 10
+
+# 同一论文存在多个 Google Scholar ID 时，核验各 ID 后检索，统一聚合去重
+scholar citations "google_scholar:5554083676653175677,10581113726319067053" `
+  --source google_scholar_serpapi --limit 100
 ```
+
+`references` 和 `citations` 提供两种阅读模式，均输出本次返回的全部去重论文，不截断标题：
+
+- `--format compact`（默认）：本次去重后数量、每篇论文的完整名称、论文链接、各来源及其链接。
+- `--format detailed`：在精简模式基础上增加年份、作者、期刊/会议及可用 PDF 链接。
+
+按去重后的论文逐篇组织信息，同一篇的多个来源集中列出。缺失链接标为“未提供链接”，不伪造。
+两种模式均不显示原始记录数、去重指标、限流或失败原因；诊断证据仍保存在查询运行记录中。
+`--limit` 控制实际检索上限，显示的数量是本次检索结果数，不代表全网引用总数。
+程序调用仍可显式使用 `--format json` 导出完整结果；旧 `audit` 参数兼容精简模式，
+`table` 保留为旧版兼容格式。
+
+关系检索会先把 OpenAlex、Semantic Scholar 等来源专有 seed ID 转译为 DOI/arXiv 等可移植标识，再让
+其他来源解析。Google 多 cluster 中某一簇失效时，可用簇的结果仍会返回，整体状态为 `partial`，
+详细结果见 `provider_reports[].context.cluster_outcomes`。
 
 ### 4. 相关论文检索
 
@@ -148,7 +176,53 @@ scholar graph expand "10.1038/s41586-021-03819-2" `
 
 ## 数据来源
 
-Registry 默认包含 12 个开放来源；配置 `SERPAPI_API_KEY` 后增加 1 个可选授权来源。
+### arXiv 论文的多源被引聚合
+
+arXiv 页面的 ADS、Google Scholar、Semantic Scholar 是外部索引入口，各自的引用覆盖可能不同。
+CLI 会调用配置的数据源，再按论文身份聚合去重；一个来源的计数不是全网总数。
+
+```powershell
+# 无需填写 Semantic Scholar key 即可尝试；公开访问仍可能限流
+scholar citations "https://arxiv.org/abs/2603.25723" --source openalex,semantic_scholar,google_scholar_serpapi --limit 100
+
+# 在 .env 配置 ADS_API_TOKEN 后，加入 NASA ADS
+scholar citations "https://arxiv.org/abs/2603.25723" --source openalex,semantic_scholar,google_scholar_serpapi,ads --limit 100
+```
+
+NASA ADS token 在 [ADS 账户设置](https://ui.adsabs.harvard.edu/user/settings/token) 生成，
+填入项目 `.env` 的 `ADS_API_TOKEN=`。未配置时不会注册 `ads`。
+Google Scholar 解析 seed 后继续检索标题和强标识符，沿匹配记录的 All Versions 发现更多 cluster。
+ID 查询为空时也可借助其他来源的 seed 元数据。候选须通过标识符或标题、作者、年份核验；
+分别保存 `versions.cluster_id` 与 `cited_by.cites_id`，不假设两者相等，也不写死示例论文 ID。
+不同 cites ID 的论文记录全部交给统一聚合层去重，保留各自的获取证据。
+
+被引抓取使用多轮一致性召回：每轮从第一页开始，只跟随 `serpapi_pagination.next`；
+每页最多 10 条，`filter=0`，每次设置 `no_cache=true` 并绕过项目本地 HTTP 缓存。
+连续两轮完整分页得到相同结果 ID 集合、且不存在已知总数缺口时停止，默认最多 4 轮。
+可在 `.env` 设置 `SCHOLAR_GOOGLE_CITATION_ROUNDS=6` 增加预算（至少 2）。
+后续请求失败仍保留已获取记录；达到预算、集合不稳定或数量缺口会在机器结果中标记 `partial`。
+这不保证枚举 Google 内部全部 cluster，也不保证拿到网页标称的全部被引；上游可能持续漏返。
+相比单轮查询会增加 SerpApi 配额消耗，首次执行建议选择少量 seed。
+显式 `google_scholar:ID1,ID2` 是用户指定的被引列表提示：无法通过 All Versions 核验的
+ID 仍会尝试抓取，但保留 `caller_supplied_not_verified` 标记，不伪装成自动发现的同一论文身份。
+请只传入已人工确认属于同一 seed 的 ID；自动搜索得到但身份不匹配的候选不会加入。
+
+`--limit` 通常是每个来源的上限；Google 多 cites ID 时是**每个 cites ID 的上限**，
+不会因第一个列表达到 limit 而跳过其他列表。多源去重后的总数可能超过 limit。
+来源报告与匹配证据可通过 `--format json` 检查，精简阅读模式不展示调试信息。
+
+维护者可以运行官方分页对照诊断（消耗 SerpApi 额度；默认最多 20 次 search 请求）：
+
+```powershell
+python tools/diagnose_scholar_pagination.py --cites 5554083676653175677 --rounds 2 --max-pages 5 --live
+```
+
+该命令绕过本地缓存，对照官方 next 与项目参数重建，输出逐页请求条件、search_id 和论文 ID，
+不输出 API key。`--mode official --filter default` 可仅测官方默认过滤。
+普通用户继续使用 `scholar citations`；诊断结果及已确认的上游边界见测试验收文档。
+
+Registry 默认包含 12 个开放来源；配置 `SERPAPI_API_KEY` 和 `ADS_API_TOKEN` 后分别启用
+Google Scholar/SerpApi 和 NASA ADS，最多 14 个来源。
 
 | Provider 名 | Search | Resolve | References | Citations | 默认 key |
 |---|---:|---:|---:|---:|---:|
@@ -165,6 +239,7 @@ Registry 默认包含 12 个开放来源；配置 `SERPAPI_API_KEY` 后增加 1 
 | `inspire` | 是 | DOI/arXiv/recid | list | list | 否 |
 | `opencitations` | none | DOI/PMID/OMID | list | list | 否，推荐 token |
 | `google_scholar_serpapi` | 是 | cluster/查询 | none | list | 是 |
+| `ads` | 是 | DOI/arXiv/bibcode | list | list | 是 |
 
 `list` 表示能返回可遍历论文列表，`count` 只表示来源提供计数，`none` 表示不支持。系统不会把
 count 伪装成引用边。ACL Anthology 没有公开 REST 搜索 API，因此先用 DBLP 官方 API 发现有界候选，
@@ -213,8 +288,9 @@ CLI 是一次命令、一次结果，不监听端口。完整参数以 `scholar 
 | `review list/decide/revert` | 身份灰区人工决策与回滚 |
 | `evaluate*` / `validate-reference-smoke` | 检索、实体、关系和 Reference 评测 |
 
-默认输出 JSON；`search` 等命令可用 `--format table` 供人工浏览。程序调用必须同时检查进程退出码、
-领域 `status` 和 `provider_reports`。
+`search`、`resolve` 和 `related` 默认输出 JSON，也可用 `--format table` 供人工浏览；`references` 和
+`citations` 默认输出 `compact`，可用 `--format detailed` 阅读更多论文字段。程序调用应显式使用 `--format json`，并同时检查进程
+退出码、领域 `status` 和 `provider_reports`。
 
 ## Python Library
 

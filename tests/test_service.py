@@ -49,6 +49,102 @@ class FakeProvider(ScholarlyProvider):
         return ProviderBatch(papers=[Paper(record_id="fake:C", title="Citing")])
 
 
+class NativeIdentifierProvider(FakeProvider):
+    name = "native_identifier"
+
+    def __init__(self) -> None:
+        self.citation_identifier: str | None = None
+
+    async def resolve(self, identifier: str) -> Paper | None:
+        if identifier != "native:W1":
+            return None
+        provenance = Provenance(provider=self.name, source_record_id="W1")
+        return Paper(
+            record_id="native_identifier:W1",
+            title="Portable seed",
+            identifiers=[
+                IdentifierClaim(
+                    scheme=IdentifierScheme.DOI,
+                    value="10.1234/portable-seed",
+                    provenance=provenance,
+                )
+            ],
+            source_records=[SourceRecord(provider=self.name, source_record_id="W1")],
+        )
+
+    async def citations(self, identifier: str, *, limit: int = 100) -> ProviderBatch:
+        self.citation_identifier = identifier
+        return ProviderBatch(papers=[Paper(record_id="native_identifier:C", title="Citing")])
+
+
+class PortableIdentifierProvider(FakeProvider):
+    name = "portable_identifier"
+
+    def __init__(self) -> None:
+        self.resolve_identifiers: list[str] = []
+        self.citation_identifier: str | None = None
+
+    async def resolve(self, identifier: str) -> Paper | None:
+        self.resolve_identifiers.append(identifier)
+        if identifier != "10.1234/portable-seed":
+            return None
+        provenance = Provenance(provider=self.name, source_record_id="S2")
+        return Paper(
+            record_id="portable_identifier:S2",
+            title="Portable seed",
+            identifiers=[
+                IdentifierClaim(
+                    scheme=IdentifierScheme.DOI,
+                    value="10.1234/portable-seed",
+                    provenance=provenance,
+                )
+            ],
+            source_records=[SourceRecord(provider=self.name, source_record_id="S2")],
+        )
+
+    async def citations(self, identifier: str, *, limit: int = 100) -> ProviderBatch:
+        self.citation_identifier = identifier
+        return ProviderBatch(papers=[Paper(record_id="portable_identifier:C", title="Citing")])
+
+
+class RankedKeywordProvider(FakeProvider):
+    def __init__(self, name: str, titles: list[str]) -> None:
+        self.name = name
+        self.titles = titles
+        self.received_limit: int | None = None
+
+    async def search(self, query: SearchQuery) -> ProviderBatch:
+        self.received_limit = query.limit
+        return ProviderBatch(
+            papers=[
+                Paper(
+                    record_id=f"{self.name}:{index}",
+                    title=title,
+                    source_records=[
+                        SourceRecord(
+                            provider=self.name,
+                            source_record_id=str(index),
+                            provider_rank=index,
+                        )
+                    ],
+                )
+                for index, title in enumerate(self.titles, start=1)
+            ]
+        )
+
+
+class PartialCitationProvider(FakeProvider):
+    name = "partial_citation"
+
+    async def citations(self, identifier: str, *, limit: int = 100) -> ProviderBatch:
+        return ProviderBatch(
+            papers=[Paper(record_id="partial_citation:C", title="Recovered citation")],
+            status=RunStatus.PARTIAL,
+            truncated=True,
+            context={"failed_partition_count": 1},
+        )
+
+
 class LocalAdvancedFilterProvider(FakeProvider):
     name = "local_filters"
 
@@ -147,6 +243,81 @@ def test_search_applies_year_author_and_open_access_filters_locally() -> None:
             "author": "local",
             "open_access": "local",
         }
+
+    asyncio.run(scenario())
+
+
+def test_keyword_search_overfetches_and_globally_ranks_relevant_candidates() -> None:
+    async def scenario() -> None:
+        first = RankedKeywordProvider(
+            "first",
+            [
+                "Federated learning systems",
+                "Dense retrieval for open domain question answering",
+                "A third candidate",
+            ],
+        )
+        second = RankedKeywordProvider(
+            "second",
+            [
+                "Dense passage retrieval for question answering",
+                "Vision-language navigation",
+                "Another candidate",
+            ],
+        )
+        service = ScholarService([first, second])
+
+        result = await service.search(
+            SearchQuery(text="dense retrieval open domain question answering", limit=1)
+        )
+
+        assert result.papers[0].title == "Dense retrieval for open domain question answering"
+        assert first.received_limit == 3
+        assert second.received_limit == 3
+
+    asyncio.run(scenario())
+
+
+def test_relation_translates_native_seed_id_to_portable_identifier() -> None:
+    async def scenario() -> None:
+        native = NativeIdentifierProvider()
+        portable = PortableIdentifierProvider()
+        service = ScholarService([native, portable])
+
+        result = await service.citations("native:W1", limit=10)
+
+        assert native.citation_identifier == "native:W1"
+        assert portable.resolve_identifiers == ["native:W1", "10.1234/portable-seed"]
+        assert portable.citation_identifier == "10.1234/portable-seed"
+        assert {paper.record_id for paper in result.papers} == {
+            "native_identifier:C",
+            "portable_identifier:C",
+        }
+        portable_resolve = next(
+            report
+            for report in result.provider_reports
+            if report.provider == "portable_identifier" and report.operation == "resolve"
+        )
+        assert portable_resolve.status == RunStatus.COMPLETE
+        assert portable_resolve.context == {
+            "identifier_translated_from": "native:W1",
+            "identifier_used": "10.1234/portable-seed",
+        }
+
+    asyncio.run(scenario())
+
+
+def test_provider_partial_batch_stays_partial_while_preserving_results() -> None:
+    async def scenario() -> None:
+        result = await ScholarService([PartialCitationProvider()]).citations("seed")
+
+        assert result.status == RunStatus.PARTIAL
+        assert [paper.title for paper in result.papers] == ["Recovered citation"]
+        citation_report = next(
+            report for report in result.provider_reports if report.operation == "citations"
+        )
+        assert citation_report.status == RunStatus.PARTIAL
+        assert citation_report.context == {"failed_partition_count": 1}
 
     asyncio.run(scenario())
 

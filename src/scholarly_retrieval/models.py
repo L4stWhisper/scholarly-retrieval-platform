@@ -286,8 +286,7 @@ class Paper(BaseModel):
             else:
                 claim_value = value
             self.field_claims[field] = [
-                FieldClaim(value=claim_value, provenance=provenance)
-                for provenance in provenances
+                FieldClaim(value=claim_value, provenance=provenance) for provenance in provenances
             ]
         return self
 
@@ -522,6 +521,11 @@ class ProviderBatch(BaseModel):
     next_cursor: str | None = None
     filter_execution: dict[str, str] = Field(default_factory=dict)
     unresolved_references: list[UnresolvedReference] = Field(default_factory=list)
+    # Adapters may preserve useful rows when one page or source sub-cluster
+    # fails. This override prevents such a bounded result being mislabeled as
+    # complete by the service layer.
+    status: RunStatus | None = None
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 class RetrievalEvidence(BaseModel):
@@ -615,9 +619,7 @@ class CitationAssertion(BaseModel):
     relation: RelationKind
     provenance: Provenance
     evidence_type: CitationEvidenceType = CitationEvidenceType.PROVIDER_GRAPH
-    verification_status: CitationVerificationStatus = (
-        CitationVerificationStatus.PROVIDER_ASSERTED
-    )
+    verification_status: CitationVerificationStatus = CitationVerificationStatus.PROVIDER_ASSERTED
     evidence: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -645,9 +647,7 @@ class VisibleCitationEdge(BaseModel):
     citing_record_id: str
     cited_record_id: str
     assertions: list[CitationAssertion]
-    verification_status: CitationVerificationStatus = (
-        CitationVerificationStatus.PROVIDER_ASSERTED
-    )
+    verification_status: CitationVerificationStatus = CitationVerificationStatus.PROVIDER_ASSERTED
 
     @model_validator(mode="after")
     def derive_identity_and_verification(self) -> VisibleCitationEdge:

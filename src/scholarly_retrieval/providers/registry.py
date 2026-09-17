@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from ..storage import SQLiteStore
 from .acl_anthology import AclAnthologyProvider
+from .ads import ADSProvider
 from .arxiv import ArxivProvider
 from .base import ScholarlyProvider
 from .crossref import CrossrefProvider
@@ -85,11 +86,14 @@ def default_provider_registry() -> ProviderRegistry:
     """Build a fresh registry so callers can safely extend it per service."""
 
     registry = ProviderRegistry()
+    registry.register(
+        "ads",
+        lambda store: ADSProvider(store=store),
+        enabled=lambda: bool(os.getenv("ADS_API_TOKEN")),
+    )
     registry.register("openalex", lambda store: OpenAlexProvider(store=store))
     registry.register("openaire", lambda store: OpenAireProvider(store=store))
-    registry.register(
-        "semantic_scholar", lambda store: SemanticScholarProvider(store=store)
-    )
+    registry.register("semantic_scholar", lambda store: SemanticScholarProvider(store=store))
     registry.register("crossref", lambda store: CrossrefProvider(store=store))
     registry.register("datacite", lambda store: DataCiteProvider(store=store))
     registry.register("dblp", lambda store: DblpProvider(store=store))

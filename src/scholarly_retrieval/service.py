@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import os
+import re
 from collections.abc import Awaitable, Callable
 from itertools import combinations
 from pathlib import Path
@@ -85,6 +87,25 @@ ResultT = TypeVar(
     ReferenceLinkingResult,
 )
 REFERENCE_LINK_CONCURRENCY = 4
+SEARCH_RRF_K = 60
+SEARCH_STOP_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "by",
+        "for",
+        "from",
+        "in",
+        "of",
+        "on",
+        "the",
+        "to",
+        "using",
+        "via",
+        "with",
+    }
+)
 
 
 class ScholarService:
@@ -111,9 +132,7 @@ class ScholarService:
         self.providers = {provider.name: provider for provider in providers}
         self._clock = clock
         self.reference_matching_policy = reference_matching_policy or ReferenceMatchingPolicy(
-            auto_match_threshold=float(
-                os.getenv("SCHOLAR_REFERENCE_AUTO_MATCH_THRESHOLD", "0.92")
-            ),
+            auto_match_threshold=float(os.getenv("SCHOLAR_REFERENCE_AUTO_MATCH_THRESHOLD", "0.92")),
             minimum_margin=float(os.getenv("SCHOLAR_REFERENCE_MINIMUM_MARGIN", "0.08")),
         )
 
@@ -150,9 +169,7 @@ class ScholarService:
             },
         }
 
-    def plan_search(
-        self, query: SearchQuery, *, sources: list[str] | None = None
-    ) -> dict:
+    def plan_search(self, query: SearchQuery, *, sources: list[str] | None = None) -> dict:
         """Describe provider/local filter execution without making HTTP calls."""
 
         selected = self._select(sources)
@@ -185,8 +202,10 @@ class ScholarService:
             "sort",
             "expression",
         }
-        advanced_requested = any(requested[field] for field in local_defaults)
-        provider_limit = min(100, query.limit * 3) if advanced_requested else query.limit
+        # Fetch a larger candidate window from every source before canonical
+        # fusion. Returning only query.limit from each source makes a source's
+        # top-N omissions unrecoverable and materially lowers recall.
+        provider_limit = min(100, query.limit * 3)
         plans = []
         for provider in selected:
             # Some provider filters are conditional on the requested value.
@@ -213,6 +232,7 @@ class ScholarService:
             "fanout": len(plans),
             "plans": plans,
             "notes": [
+                "providers overfetch up to 3x before deduplication and relevance fusion",
                 "local filters run after bounded provider recall",
                 "unsupported filters are disclosed and never treated as provider-executed",
             ],
@@ -307,25 +327,10 @@ class ScholarService:
             for provider in selected
             if not provider.capabilities.keyword_search
         ]
-        local_fields_requested = any(
-            (
-                query.year_from is not None,
-                query.year_to is not None,
-                query.author,
-                query.open_access is not None,
-                query.title,
-                query.abstract,
-                query.venue,
-                query.field,
-                query.work_types,
-                query.min_citations is not None,
-                query.sort != SearchSort.RELEVANCE,
-                query.expression is not None,
-            )
-        )
-        provider_query = query.model_copy(
-            update={"limit": min(100, query.limit * 3) if local_fields_requested else query.limit}
-        )
+        # Candidate overfetch serves recall for plain keyword search as well as
+        # for locally filtered advanced search. The final limit is applied only
+        # after cross-source identity resolution and relevance fusion.
+        provider_query = query.model_copy(update={"limit": min(100, query.limit * 3)})
         outputs = await asyncio.gather(
             *(self._call(provider, "search", provider_query) for provider in active),
         )
@@ -356,7 +361,7 @@ class ScholarService:
         canonical = [
             paper for paper in resolution.papers if self._matches_search_filters(paper, query)
         ]
-        canonical = self._sort_search_results(canonical, query.sort)
+        canonical = self._sort_search_results(canonical, query.sort, query=query)
         truncated |= len(canonical) > query.limit
         canonical = canonical[: query.limit]
         return SearchResult(
@@ -454,9 +459,7 @@ class ScholarService:
             async with semaphore:
                 return await self._link_reference_candidate(reference, sources=sources)
 
-        links = list(
-            await asyncio.gather(*(bounded_link(item) for item in extraction.references))
-        )
+        links = list(await asyncio.gather(*(bounded_link(item) for item in extraction.references)))
         for link in links:
             reference = link.reference
             reports.extend(link.provider_reports)
@@ -480,8 +483,7 @@ class ScholarService:
                             "evidence_level": reference.evidence_level.value,
                             "callout_count": reference.callout_count,
                             "citation_contexts": [
-                                context.model_dump(mode="json")
-                                for context in reference.contexts
+                                context.model_dump(mode="json") for context in reference.contexts
                             ],
                         },
                     )
@@ -775,11 +777,70 @@ class ScholarService:
                 for _, report in seed_outputs
             ]
             raise LookupError(
-                f"paper not found: {identifier}; provider outcomes: "
-                f"{', '.join(outcomes) or 'none'}"
+                f"paper not found: {identifier}; provider outcomes: {', '.join(outcomes) or 'none'}"
             )
         seed = seeds[0]
-        available: list[tuple[ScholarlyProvider, Paper]] = []
+
+        # Provider-native IDs are not portable. If one source resolves an
+        # OpenAlex/S2/etc. ID, translate it through the canonical seed's DOI,
+        # arXiv ID, PMID, or another claimed identifier before declaring other
+        # sources unavailable. Runtime failures and throttles are not retried
+        # under a different identifier because that would amplify an outage.
+        traversal_identifiers = {provider.name: identifier for provider in selected}
+        portable_identifier = self._preferred_identifier(seed)
+        fallback_indexes = [
+            index
+            for index, (provider, (batch, report)) in enumerate(
+                zip(selected, seed_outputs, strict=True)
+            )
+            if getattr(provider.capabilities, operation) == "list"
+            and not batch.papers
+            and report.status == RunStatus.EMPTY
+            and portable_identifier.casefold() != identifier.casefold()
+        ]
+        fallback_outputs = await asyncio.gather(
+            *(
+                self._call(selected[index], "resolve", portable_identifier)
+                for index in fallback_indexes
+            )
+        )
+        seed_outputs = list(seed_outputs)
+        for index, fallback_output in zip(fallback_indexes, fallback_outputs, strict=True):
+            batch, report = fallback_output
+            traversal_identifiers[selected[index].name] = portable_identifier
+            seed_outputs[index] = (
+                batch,
+                report.model_copy(
+                    update={
+                        "context": {
+                            **report.context,
+                            "identifier_translated_from": identifier,
+                            "identifier_used": portable_identifier,
+                        }
+                    }
+                ),
+            )
+
+        # Metadata-aware adapters can recover from a truly empty ID lookup.
+        # Do not amplify throttles or authentication failures with new searches.
+        for index, (provider, (batch, report)) in enumerate(
+            zip(selected, seed_outputs, strict=True)
+        ):
+            if (
+                not batch.papers
+                and report.status == RunStatus.EMPTY
+                and getattr(provider.capabilities, operation) == "list"
+            ):
+                recovered, recovery_report = await self._call(provider, "resolve_seed", seed)
+                if recovered.papers or recovery_report.status != RunStatus.EMPTY:
+                    seed_outputs[index] = (recovered, recovery_report)
+
+        # Include fallback seed records in the canonical seed and alias map.
+        seed_resolution = self._resolve_identities(
+            [paper for batch, _ in seed_outputs for paper in batch.papers]
+        )
+        seed = seed_resolution.papers[0]
+        available: list[tuple[ScholarlyProvider, Paper, str]] = []
         relation_reports: list[ProviderReport] = []
         for provider, (batch, seed_report) in zip(selected, seed_outputs, strict=True):
             capability = getattr(provider.capabilities, operation)
@@ -824,9 +885,20 @@ class ScholarService:
                         )
                     )
             else:
-                available.append((provider, batch.papers[0]))
+                available.append(
+                    (
+                        provider,
+                        batch.papers[0],
+                        provider.traversal_identifier(
+                            batch.papers[0], traversal_identifiers[provider.name]
+                        ),
+                    )
+                )
         outputs = await asyncio.gather(
-            *(self._call(provider, operation, identifier, limit=limit) for provider, _ in available)
+            *(
+                self._call(provider, operation, traversal_identifier, limit=limit)
+                for provider, _, traversal_identifier in available
+            )
         )
         raw_papers: list[Paper] = []
         reports: list[ProviderReport] = [report for _, report in seed_outputs]
@@ -835,7 +907,7 @@ class ScholarService:
         unresolved_references: list[UnresolvedReference] = []
         raw_ids_by_provider: dict[str, list[str]] = {}
         truncated = False
-        for (provider, provider_seed), (batch, report) in zip(available, outputs, strict=True):
+        for (provider, provider_seed, _), (batch, report) in zip(available, outputs, strict=True):
             raw_papers.extend(batch.papers)
             raw_ids_by_provider[provider.name] = [paper.record_id for paper in batch.papers]
             reports.append(report)
@@ -1291,7 +1363,7 @@ class ScholarService:
                 batch = ProviderBatch()
             else:
                 batch = ProviderBatch(papers=[value])
-            status = (
+            status = batch.status or (
                 RunStatus.COMPLETE
                 if batch.papers or batch.unresolved_references
                 else RunStatus.EMPTY
@@ -1306,9 +1378,11 @@ class ScholarService:
                 truncated=batch.truncated,
                 next_cursor=batch.next_cursor,
                 filter_execution=batch.filter_execution,
+                context=batch.context,
             )
         except httpx.HTTPStatusError as exc:
             status = RunStatus.THROTTLED if exc.response.status_code == 429 else RunStatus.FAILED
+            reliability = exc.response.extensions.get("scholarly_reliability", {})
             return ProviderBatch(), ProviderReport(
                 provider=provider.name,
                 operation=operation,
@@ -1318,6 +1392,11 @@ class ScholarService:
                     f"provider returned HTTP {exc.response.status_code}; "
                     "request URL omitted to protect credentials"
                 ),
+                context={
+                    key: reliability[key]
+                    for key in ("attempt_count", "retry_delays")
+                    if key in reliability
+                },
             )
         except httpx.HTTPError as exc:
             return ProviderBatch(), ProviderReport(
@@ -1593,9 +1672,13 @@ class ScholarService:
         return True
 
     @staticmethod
-    def _sort_search_results(papers: list[Paper], sort: SearchSort) -> list[Paper]:
+    def _sort_search_results(
+        papers: list[Paper], sort: SearchSort, *, query: SearchQuery | None = None
+    ) -> list[Paper]:
         if sort == SearchSort.RELEVANCE:
-            return papers
+            if query is None:
+                return papers
+            return ScholarService._rank_search_relevance(papers, query.text)
         if sort == SearchSort.NEWEST:
             return sorted(
                 papers,
@@ -1623,6 +1706,85 @@ class ScholarService:
         )
 
     @staticmethod
+    def _rank_search_relevance(papers: list[Paper], query_text: str) -> list[Paper]:
+        """Fuse provider ranks with soft lexical coverage, without hard filtering.
+
+        The lexical signal removes obvious off-topic tail records, while RRF
+        rewards independent source agreement. No candidate is discarded for a
+        missing query term, which preserves the recall-oriented search contract.
+        """
+
+        query_tokens = ScholarService._search_tokens(query_text)
+        if not query_tokens:
+            return papers
+        documents = {
+            paper.record_id: ScholarService._search_tokens(
+                " ".join(
+                    value
+                    for value in [
+                        paper.title,
+                        paper.abstract or "",
+                        paper.venue or "",
+                        " ".join(paper.fields_of_study),
+                    ]
+                    if value
+                )
+            )
+            for paper in papers
+        }
+        document_count = max(1, len(papers))
+        document_frequency = {
+            token: sum(token in tokens for tokens in documents.values()) for token in query_tokens
+        }
+        weights = {
+            token: math.log((document_count + 1) / (document_frequency[token] + 1)) + 1.0
+            for token in query_tokens
+        }
+        total_weight = sum(weights.values()) or 1.0
+        normalized_query = " ".join(query_text.casefold().split())
+
+        def score(paper: Paper) -> tuple[float, int, str]:
+            title_tokens = ScholarService._search_tokens(paper.title)
+            body_tokens = documents[paper.record_id]
+            title_coverage = (
+                sum(weights[token] for token in query_tokens if token in title_tokens)
+                / total_weight
+            )
+            body_coverage = (
+                sum(weights[token] for token in query_tokens if token in body_tokens) / total_weight
+            )
+            searchable_text = " ".join(
+                [paper.title, paper.abstract or "", paper.venue or ""]
+            ).casefold()
+            phrase_hit = float(normalized_query in " ".join(searchable_text.split()))
+            ranks_by_provider: dict[str, int] = {}
+            for source in paper.source_records:
+                if source.provider_rank is None:
+                    continue
+                ranks_by_provider[source.provider] = min(
+                    ranks_by_provider.get(source.provider, source.provider_rank),
+                    source.provider_rank,
+                )
+            rrf = sum(1.0 / (SEARCH_RRF_K + rank) for rank in ranks_by_provider.values())
+            best_rank = min(ranks_by_provider.values(), default=10_000)
+            fused = (
+                4.0 * title_coverage
+                + 1.25 * body_coverage
+                + 0.75 * phrase_hit
+                + 10.0 * rrf
+                + 0.05 * min(len(ranks_by_provider), 3)
+            )
+            return fused, -best_rank, paper.record_id
+
+        return sorted(papers, key=score, reverse=True)
+
+    @staticmethod
+    def _search_tokens(value: str) -> set[str]:
+        tokens = {token.casefold() for token in re.findall(r"[^\W_]+", value)}
+        meaningful = tokens - SEARCH_STOP_WORDS
+        return meaningful or tokens
+
+    @staticmethod
     def _provider_contributions(
         raw_ids_by_provider: dict[str, list[str]],
         record_id_map: dict[str, str],
@@ -1639,8 +1801,7 @@ class ScholarService:
         )
         occurrence_count = {
             canonical_id: sum(
-                canonical_id in provider_ids
-                for provider_ids in canonical_by_provider.values()
+                canonical_id in provider_ids for provider_ids in canonical_by_provider.values()
             )
             for canonical_id in set().union(*canonical_by_provider.values())
         }
@@ -1682,9 +1843,7 @@ class ScholarService:
                     shared_canonical_count=shared_count,
                     union_canonical_count=union_count,
                     jaccard=shared_count / union_count if union_count else 0.0,
-                    overlap_coefficient=(
-                        shared_count / smaller_count if smaller_count else 0.0
-                    ),
+                    overlap_coefficient=(shared_count / smaller_count if smaller_count else 0.0),
                 )
             )
         return overlaps
@@ -1738,6 +1897,11 @@ class ScholarService:
         active = [report for report in reports if report.status != RunStatus.SKIPPED]
         if not active:
             return RunStatus.DEGRADED
+        # A provider-level partial batch contains usable results plus an
+        # explicitly disclosed gap. It must never collapse to FAILED merely
+        # because there is no separate COMPLETE provider in the same request.
+        if any(report.status == RunStatus.PARTIAL for report in active):
+            return RunStatus.PARTIAL
         successes = sum(report.status in {RunStatus.COMPLETE, RunStatus.EMPTY} for report in active)
         if successes == len(active):
             return RunStatus.COMPLETE if has_results else RunStatus.EMPTY

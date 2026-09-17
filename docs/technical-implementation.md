@@ -8,6 +8,56 @@
 
 ## 1. 目标与边界
 
+### 多源 citation seed 解析与 NASA ADS
+
+Provider 新增可选 `resolve_seed(Paper)` 与 `traversal_identifier(Paper, fallback)` 钩子。
+关系检索先做输入 ID 解析、可移植 ID 回退；仅在空结果时尝试元数据核验，
+429、鉴权及其他服务故障不触发额外标题检索。Google Scholar 对官方明确的零结果响应返回空批次；
+标题候选以强标识符或规范化标题＋作者姓氏＋相容年份核验，冲突标识符排除，
+Google 即使直接解析成功也继续发现别名：标题/强标识符检索、已核验记录的 All Versions，
+以有界队列遍历。`versions.cluster_id` 和 `cited_by.cites_id` 分别保存于 SourceRecord 的
+retrieval_context；只把明确返回的 cites ID 用作被引列表入口。显式输入的多个 cluster 也逐个
+核验，不盲目将调用者给出的 ID 声明为同一论文。显式 numeric ID 同时是调用者指定的
+cites 列表提示：无法核验时仍可遍历，但 SourceRecord 标记 caller_supplied_not_verified，
+不创建已核验的标识符 claim；自动候选不能走此例外。这里没有针对某篇论文的特殊常量。
+
+SerpApi citation 使用多轮一致性召回（2026-09-16 替代固定偏移探测）：
+
+1. 每个 cites ID 独立运行，默认最多 4 轮，每轮从 start=0 开始。
+2. 只跟随 `serpapi_pagination.next`，不从 total_results 推算页数，也不自行推算下一页偏移。
+   下一页必须是官方 HTTPS search.json、保持 seed/query/engine 且偏移递增；忽略 URL 中的密钥，
+   保留本地授权。每轮最多 ceil(limit/10)+2 页，防止异常分页无界消耗配额。
+3. 所有轮次均 `no_cache=true`，ReliableHttpClient 同时 use_cache=False；请求仍写审计记录。
+4. 同一 cites ID 内反复观察到的相同 result_id 合并为一条抓取记录，累积轮次/页偏移证据。
+   不同 cites ID 的记录不提前去重，全部交给 ScholarService 的身份解析与多源去重。
+5. 连续两轮完整结果 ID 集合相等、且累计返回量不少于历页最大报告总数，才结束为 stable。
+   轮数/结果预算、失败、非法 next、已知缺口均返回 partial/truncated 并保留已成功的论文。
+
+`citation_rounds`（至少 2，未传入时读取 SCHOLAR_GOOGLE_CITATION_ROUNDS，默认 4）、
+`discovery_pages`（默认 12）可在 Provider 构造时调整；
+`limit` 对 Google 按 cites ID 应用，而不是裁剪所有列表拼接结果。
+`provider_reports[].context.cluster_outcomes` 保存每个 cites ID 的 rounds/pages/stop_reason；
+多列表重叠未知，因此不将其总数相加冒充去重总数。seed 的 SourceRecord 保存发现预算/错误，
+发现范围仅为可见且经核验的候选，不保证穷尽 Google 内部索引。
+每页附带 search_metadata.id，可用官方 Search Archive API 比较同一请求的 JSON 与 HTML。
+独立 CLI 诊断工具 tools/diagnose_scholar_pagination.py 不经过聚合/缓存，保留 next 查询参数并
+与项目分页构造对照。2026-09-16 的真实对照发现两者实际参数一致，但原始 HTML 也出现缺页；
+因此当前多轮机制属于有界召回补偿，不是稳定快照或全量保证。具体证据见测试验收文档。
+官方依据：[Google Scholar API](https://serpapi.com/google-scholar-api) 的 cluster、cites、
+serpapi_pagination、no_cache 参数。绕过缓存的请求消耗正常查询额度，需控制 seed 数量。
+
+NASA ADS 使用官方 `/v1/search/query`，通过 `citations(query)` 与 `references(query)`
+区分被引和参考文献方向，按 start/rows 分页并保留 numFound 和截断状态。
+bibcode 是来源记录 ID，DOI/arXiv claims 进入既有身份去重流程，source_url 保留 ADS 页面。
+官方接口与授权依据：[ADS API](https://github.com/adsabs/adsabs-dev-api)、
+[引用运算符](https://adsabs.github.io/help/search/citations-and-references)。
+
+CLI 关系检索的阅读层提供 `compact` 与 `detailed`：从服务层已去重的
+`papers` 全量渲染，以完整论文标题组织来源及 `source_url`。详细模式补充年份、
+作者、venue 和 PDF；不在显示层按相同标题再次合并，避免误合并不同论文。
+内部来源报告、身份决策及错误上下文仍进入原有持久化和 JSON 数据契约。
+终端数量仅表示本次返回的去重结果，受请求 limit 和上游覆盖影响。
+
 系统目标是给研究者和 Agent 提供可安装、可审计的论文检索内核：
 
 1. 统一关键词、高级条件、引用关系和相关性检索；
@@ -171,14 +221,18 @@ work types、minimum citations、sort 和 1～100 limit。
 - `local`：有界召回后在规范 Paper 上执行；
 - `unsupported`：无法可靠执行。
 
-本地字段过滤会把 Provider limit 放大到请求 limit 的三倍，上限仍为 100。它提高命中机会，但不能
-保证过滤后的全库 recall。规范层始终二次校验过滤和排序，避免上游语义漂移。
+所有关键词查询都会把 Provider 候选窗口放大到请求 limit 的三倍，上限仍为 100；高级字段继续在
+规范层二次校验。`sort=relevance` 使用来源名次 RRF、标题/摘要/venue/field 的 IDF 词项覆盖、原短语
+命中和多源一致性做确定性软融合。融合不按缺词硬删除候选，以避免用 precision 换掉 recall；但有界
+Top-N 仍不保证全库 recall。arXiv 将多词文本编译成顺序无关的 AND 词项，而不是要求整句精确短语。
 
 ### 5.2 Resolve
 
 `resolve(identifier)` 是身份解析，不是把 ID 当普通关键词。所有选择的、声明 `resolve_id` 的
-Provider 尝试精确解析，随后进入同一个身份层。References/Citations 查询也先 resolve seed，以获得
-每个 Provider 的本地 record ID。
+Provider 尝试精确解析，随后进入同一个身份层。References/Citations 查询也先 resolve seed；如果输入
+是某来源专有 ID，服务会从已解析 seed 选择 DOI、arXiv、PMID 等可移植标识，再让起初返回 empty 的
+list-capable Provider 重试解析。限流/运行时失败不会用别名放大重试。实际遍历使用该 Provider 成功
+解析 seed 时采用的标识，而不是把 OpenAlex ID 原样传给 Semantic Scholar。
 
 ### 5.3 References 与 Citations
 
@@ -189,6 +243,8 @@ Provider 尝试精确解析，随后进入同一个身份层。References/Citati
 - 所有可见边统一保持 `citing -> cited`；
 - count-only 来源只增加计数 claim，不生成论文或边；
 - 无强标识 deposited reference 进入 `UnresolvedReference`，不会被静默丢弃。
+- Google Scholar 各 cites ID 独立多轮分页，跨 ID 重复记录保留到统一身份聚合层；单列表失败时
+  保留其他列表并返回 `partial` 和逐列表诊断。
 
 每条 `CitationAssertion` 保存 Provider、source record、evidence type 和 verification status。多来源
 观察到同一端点时折叠为稳定 `VisibleCitationEdge`，但保留全部 assertions。
@@ -314,7 +370,10 @@ artifact 获取模块，并实现 URL/重定向/SSRF、大小、类型、哈希�
 
 - 只对无副作用查询进行缓存/重放；GET 和明确的只读 JSON POST 分开；
 - 默认最多 3 次，重试 429、500、502、503、504 和 transport errors；
-- 优先解析 `Retry-After`，否则封顶指数退避 + jitter；
+- Semantic Scholar 专用策略最多 5 次、约 2/4/8/16 秒指数退避并限制为 1 个并发、至少间隔 1.1 秒；
+- 优先解析 `Retry-After`，其独立安全上限为 120 秒，不再被指数退避的 10/30 秒上限错误截短；
+- 最终 HTTP 响应把 `attempt_count` 和实际 `retry_delays` 写入 Provider report context，未启用 SQLite 时
+  也能判断退避是否真的执行；
 - 每个 Provider 独立 semaphore、最小间隔、缓存 TTL 和内存熔断；
 - 参数排序生成稳定 cache key；持久 URL 对 key/token 等参数脱敏；
 - Authorization 不持久化，错误消息不回显带凭证 URL；
@@ -501,7 +560,7 @@ SQLite 写并发成为瓶颈；需要共享长期证据；MCP SDK 大版本迁�
 - 本地过滤只作用于有界上游 Top-N，可能漏掉库中符合条件但未进入候选池的结果；
 - ACL 关键词搜索不是官方全库索引；
 - OpenReview 可能对部分网络触发 challenge verification；不得绕过；
-- Semantic Scholar 无 key 的配额较紧；
+- Semantic Scholar 无 key 时共享匿名配额，即使指数退避也可能持续 429；生产稳定性仍依赖申请 key；
 - OCR runtime 已定义但需本机 Docker/Podman engine 才能真实验收；
 - Reference linking 阈值尚缺可再分发的跨领域人工 gold 校准；
 - SQLite 不是持续增长、多 Agent 共享的规范论文仓库；

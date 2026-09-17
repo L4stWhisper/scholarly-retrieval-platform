@@ -72,5 +72,13 @@ class ScholarlyProvider(ABC):
 
         return ProviderBatch(filter_execution={"related": "unsupported"})
 
+    async def resolve_seed(self, paper: Paper) -> Paper | None:
+        """Optional metadata-assisted resolution after identifier lookup is empty."""
+        return None
+
+    def traversal_identifier(self, paper: Paper, fallback: str) -> str:
+        """Use a verified native alias when an adapter supplies one."""
+        return fallback
+
     async def close(self) -> None:
         return None

@@ -3,7 +3,7 @@ from urllib.parse import parse_qs
 
 import httpx
 
-from scholarly_retrieval.models import IdentifierScheme, SearchQuery
+from scholarly_retrieval.models import IdentifierScheme, RunStatus, SearchQuery
 from scholarly_retrieval.providers.serpapi_google_scholar import (
     SerpApiGoogleScholarProvider,
 )
@@ -109,6 +109,93 @@ def test_serpapi_citations_uses_cluster_cites_parameter() -> None:
 
         assert [paper.record_id for paper in batch.papers] == ["google_scholar:RESULT-1"]
         assert batch.truncated is False
+
+    asyncio.run(scenario())
+
+
+def test_serpapi_citations_unions_multiple_google_scholar_clusters() -> None:
+    async def scenario() -> None:
+        seen_clusters: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            query = parse_qs(request.url.query.decode())
+            seen_clusters.append(query["cites"][0])
+            result_index = 1 if query["cites"] == ["111"] else 2
+            return httpx.Response(
+                200,
+                json={
+                    "search_information": {"total_results": 1},
+                    "organic_results": [scholar_item(result_index, cites_id="999")],
+                },
+            )
+
+        client = httpx.AsyncClient(
+            base_url="https://serpapi.com", transport=httpx.MockTransport(handler)
+        )
+        provider = SerpApiGoogleScholarProvider(api_key="secret", client=client)
+        batch = await provider.citations("google_scholar:111,222", limit=10)
+        await client.aclose()
+
+        assert list(dict.fromkeys(seen_clusters)) == ["111", "222"]
+        assert len(batch.papers) == 2
+        assert batch.total_available is None  # Overlapping lists have no additive total.
+
+    asyncio.run(scenario())
+
+
+def test_serpapi_multi_cluster_keeps_successful_cluster_when_an_alias_fails() -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            query = parse_qs(request.url.query.decode())
+            if query["cites"] == ["222"]:
+                return httpx.Response(200, json={"error": "cluster unavailable"})
+            return httpx.Response(
+                200,
+                json={
+                    "search_information": {"total_results": 1},
+                    "organic_results": [scholar_item(1, cites_id="999")],
+                },
+            )
+
+        client = httpx.AsyncClient(
+            base_url="https://serpapi.com", transport=httpx.MockTransport(handler)
+        )
+        provider = SerpApiGoogleScholarProvider(api_key="secret", client=client)
+        batch = await provider.citations("google_scholar:111,222", limit=10)
+        await client.aclose()
+
+        assert len(batch.papers) == 1
+        assert batch.status == RunStatus.PARTIAL
+        assert batch.truncated is True
+        assert [item["status"] for item in batch.context["cluster_outcomes"]] == [
+            "complete",
+            "failed",
+        ]
+
+    asyncio.run(scenario())
+
+
+def test_serpapi_multi_cluster_resolve_retains_aliases_and_arxiv_id() -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            query = parse_qs(request.url.query.decode())
+            cluster = query.get("cluster", ["111"])[0]
+            item = scholar_item(0, cites_id=cluster)
+            item["link"] = "https://arxiv.org/abs/2603.25723"
+            return httpx.Response(200, json={"organic_results": [item]})
+
+        client = httpx.AsyncClient(
+            base_url="https://serpapi.com", transport=httpx.MockTransport(handler)
+        )
+        provider = SerpApiGoogleScholarProvider(api_key="secret", client=client)
+        paper = await provider.resolve("google_scholar:111,222")
+        await client.aclose()
+
+        assert paper is not None
+        identifiers = {(claim.scheme, claim.value) for claim in paper.identifiers}
+        assert (IdentifierScheme.GOOGLE_SCHOLAR, "111") in identifiers
+        assert (IdentifierScheme.GOOGLE_SCHOLAR, "222") in identifiers
+        assert (IdentifierScheme.ARXIV, "2603.25723") in identifiers
 
     asyncio.run(scenario())
 

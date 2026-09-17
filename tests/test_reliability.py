@@ -121,6 +121,74 @@ def test_retryable_status_stops_at_max_attempts() -> None:
 
         assert response.status_code == 429
         assert calls == 3
+        assert response.extensions["scholarly_reliability"] == {
+            "attempt_count": 3,
+            "retry_delays": [0, 0],
+        }
+        await client.aclose()
+
+    asyncio.run(scenario())
+
+
+def test_retry_after_is_not_shortened_to_exponential_backoff_ceiling() -> None:
+    request = httpx.Request("GET", "https://example.test/works")
+    response = httpx.Response(429, headers={"Retry-After": "45"}, request=request)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: response))
+    reliable = ReliableHttpClient(
+        client,
+        provider="fixture",
+        policy=RetryPolicy(max_delay_seconds=10, max_retry_after_seconds=60),
+    )
+
+    assert reliable._retry_delay(response, attempt=1) == 45
+
+
+def test_retry_after_still_has_a_safety_ceiling() -> None:
+    request = httpx.Request("GET", "https://example.test/works")
+    response = httpx.Response(429, headers={"Retry-After": "3600"}, request=request)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: response))
+    reliable = ReliableHttpClient(
+        client,
+        provider="fixture",
+        policy=RetryPolicy(max_retry_after_seconds=120),
+    )
+
+    assert reliable._retry_delay(response, attempt=1) == 120
+
+
+def test_missing_retry_after_uses_exponential_backoff() -> None:
+    async def scenario() -> None:
+        calls = 0
+        sleeps: list[float] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return httpx.Response(200 if calls == 3 else 429, request=request)
+
+        async def fake_sleep(delay: float) -> None:
+            sleeps.append(delay)
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        reliable = ReliableHttpClient(
+            client,
+            provider="fixture",
+            policy=RetryPolicy(
+                max_attempts=3,
+                base_delay_seconds=2,
+                max_delay_seconds=30,
+                jitter_ratio=0,
+            ),
+            sleep=fake_sleep,
+        )
+
+        response = await reliable.get("https://example.test/works")
+
+        assert sleeps == [2, 4]
+        assert response.extensions["scholarly_reliability"] == {
+            "attempt_count": 3,
+            "retry_delays": [2, 4],
+        }
         await client.aclose()
 
     asyncio.run(scenario())

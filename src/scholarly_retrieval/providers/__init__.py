@@ -1,6 +1,7 @@
 """Provider registry exports."""
 
 from .acl_anthology import AclAnthologyProvider
+from .ads import ADSProvider
 from .arxiv import ArxivProvider
 from .base import ProviderCapabilities, ProviderOperationError, ScholarlyProvider
 from .crossref import CrossrefProvider
@@ -17,6 +18,7 @@ from .semantic_scholar import SemanticScholarProvider
 from .serpapi_google_scholar import SerpApiGoogleScholarProvider
 
 __all__ = [
+    "ADSProvider",
     "AclAnthologyProvider",
     "ArxivProvider",
     "CrossrefProvider",

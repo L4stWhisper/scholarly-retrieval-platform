@@ -4,6 +4,133 @@
 
 ## 1. 验收原则
 
+### 官方分页对照与原始 HTML 定位（2026-09-16）
+
+目的：区分“本地参数/解析丢失”和“SerpApi 返回时已经缺失”。使用
+`tools/diagnose_scholar_pagination.py` 从终端发起真实请求，不用 Claude/MCP、不经过本地缓存。
+固定主 cites ID、num=10、hl=zh-CN、as_sdt=2005、no_cache=true，分别比较原样保留官方 next
+查询参数与项目 `_next_params` 的请求构造；两轮交替执行顺序。不是并发访问的同一份索引快照。
+
+| 条件 | 第一轮不同 result ID 数 | 第二轮不同 result ID 数 |
+| --- | ---: | ---: |
+| 官方 next，filter=0 | 15 | 13 |
+| 项目 next 参数重建，filter=0 | 15 | 18 |
+| 官方 next，不传 filter（默认过滤） | 15 | 18 |
+
+共 14 次 search 请求，所有实际 next 链接的参数对照差异均为空；默认过滤也复现缺页。
+第一组官方请求第一页 total=46、10 条，第二页 total=15、5 条且无 next。
+随后通过官方 Search Archive API 对**这两次原请求**读取 JSON/HTML（4 次归档读取）：
+
+| 页偏移 | search_metadata.id | JSON 条数 | 原始 HTML 论文标题数 |
+| --- | --- | ---: | ---: |
+| 0 | `6aaa56707dcfbee8bca251d2` | 10 | 10 |
+| 10 | `6aaa5671e3e176a9451bd910` | 5 | 5 |
+
+第二页 HTML 的论文 result ID 与 JSON 一致，也没有 start=20 的分页链接。
+这证明**本次缺失发生在数据进入本地聚合之前，且不是这份 JSON 比归档 HTML 少解析了论文**。
+不能进一步据此断言究竟是 Google、SerpApi 出口/会话或其他抓取条件造成；需服务商调查。
+参数白名单和 filter=0 不是本次样本缺失的已证实原因，不能再当作既定 bug 解释。
+多轮曾取得 46 条，但上述受控实验仍不稳定；因此不承诺每次精确复现用户浏览器的完整列表。
+
+本次增加每页 search_id 审计，便于按官方归档复核；不改变用户精简输出。
+离线专项回归：26 passed（诊断工具、缓存、分页、身份/多源聚合）；Ruff 通过。
+这些测试证明处理契约，不证明 Google 全库召回率。
+依据：[Scholar API](https://serpapi.com/google-scholar-api)、
+[Search Archive API](https://serpapi.com/search-archive-api)。未向 SerpApi 发送反馈或上传项目资料。
+
+### 多 cluster / cites 与多轮一致性召回（2026-09-16，当前实现）
+
+本次只使用 CLI 进行真实验证，没有调用 Claude Agent 或 MCP。下面的旧分页探测记录仅为历史诊断，
+固定偏移探测已由 next 链接驱动的多轮召回替代。
+
+- 最终离线全量回归：261 passed、33 skipped（175.38 秒；真实联网/OCR 测试未在全量命令中启用）。
+  Ruff 与 git diff --check 均通过。
+- `test_scholar_consistency.py` 覆盖：cluster 与 cites 不相等、All Versions 遍历和分页、冲突 seed
+  排除、显式未核验 ID 提示不伪造身份 claim、不同 cites 保留重复记录、本地/SerpApi 双缓存绕过、
+  非法/循环/换 seed 分页、相同数量但不同 ID 不算稳定、总数缺口、非标准偏移 next 链接。
+- `test_citation_sources.py` 验证第一次缺失 next 后在新一轮恢复、后页失败保留已取论文；
+  两个 Google 列表和另一个来源共 3 条原始观察，在 service 统一合并为 1 篇，保留两个 seed_cites_id。
+- 真实 CLI：`citations https://arxiv.org/abs/2603.25723 --source arxiv,google_scholar_serpapi,ads
+  --limit 100 --format json`。arXiv 仅用于 seed 解析；Google 主列表各轮观察到 18、19、17、17 条，
+  四轮累计 33 条；ADS 返回 21 条；原始 54 条，统一去重后 47 篇，状态 partial。
+- 随后的双 ID CLI 诊断中，主 ID 四轮分别得到 20、3、46、22 个不同 result ID；第三轮
+  start=0/10/20/30/40，返回 10/10/10/10/6，累计及最终去重结果均为 46。
+  第一页曾报告 46、后页却报告 15 并返回空；因此 no_cache 与多轮确实恢复了单轮丢失结果。
+  本次只有主 ID 通过自动核验，暴露出显式第二 ID 会被忽略的问题，随后补充 caller-supplied
+  提示保留机制。四轮集合仍不一致，因此 46 条不等于已证明稳定或全网完整，仍标记 partial。
+- 单独用 Google 对 DOI 或主 cluster 解析曾返回 empty；增加其他来源的 seed 元数据可恢复。
+  这是来源解析覆盖限制，不能把 empty 等同于该论文没有 citations。
+- 最终双 ID CLI 已跑通：仅在测试进程设置 SCHOLAR_GOOGLE_CITATION_ROUNDS=2，
+  seed 小候选解析使用 num=3；主 ID 两轮观察 18、40，累计 40 条；第二 ID 两轮各 2 条且稳定。
+  原始 42 条交给统一聚合，最终 42 篇。主 ID 仍有 46 的已知缺口，整体 partial。
+  这与前次主 ID 46 条是不同运行，不能把两次数字相加当作一次召回；全网完整性仍未证明。
+  所有这些数据由真实 CLI 获得，不是 mock 断言替代。
+
+执行命令与预算、每轮 pages/stop_reason 均可从 JSON 的 provider_reports context 审核；
+若要跨进程保留原始响应，需要配置 SCHOLAR_DB_PATH。精简/详细阅读输出不展示这些调试字段。
+
+### 用户 Google Scholar URL 对照（2026-09-16）
+
+用户提供主 cites ID `5554083676653175677`（网页46条、5页）与另一个
+`10581113726319067053`，网页参数为 as_sdt=2005、sciodt=0,5、hl=zh-CN。
+通过 SerpApi 逐页请求主 ID，start=0/10/20/30/40 返回条数为10/10/10/10/0，
+对应报告总数16/46/46/46/16，跨页按 result_id 合并仅33条。
+参数回显包含 hl 与 as_sdt，未包含 sciodt，不能宣称网页请求完全等价。
+
+仅对异常首页与末页设置 no_cache=true 再查：首页报告15，末页报告46并实际返回6条。
+故缓存不是已证实的唯一原因；当前访问链路存在页面计数和列表不一致，未验收完整46条召回。
+
+第二 ID 的 cluster 查询返回标题 “Natural-language agent harnesses, 2026”，作者
+L Pan、L Zou、S Guo、J Ni、HT Zheng，出版信息指向 arxiv.org/abs/2603.25723，
+没有独立 landing link，被引计数6。该证据支持同一论文的另一引文索引记录，
+不支持“存在第二个论文版本”的结论；两个 ID 的被引列表不可直接相加。
+随后 CLI 单独查询第二 ID 返回2条（其本次列表报告总数也为2），与元数据计数6不一致，
+同样不能用单次 complete 状态证明覆盖完整。
+
+### Google Scholar 分页不一致与 ADS 授权实测（2026-09-15）
+
+- 用户配置 ADS token 后，修复分页前四源 CLI 实测：OpenAlex 1、Semantic Scholar 42、
+  Google Scholar 20、ADS 21，聚合去重后 59。
+- 对同一 Google cluster 使用 num=10、filter=0：start=0 报告总数22、返回10；
+  start=10 报告18、返回8且无next；继续 start=20 报告46、返回10且有next。
+  证明缺失 next 不足以断言终点，也不能用返回条数推进稀疏分页偏移。
+- 已实现有界探测、固定页宽偏移、跨页 ID 去重和保留失败前结果。
+  新增两项回归覆盖假终点/重复记录与后续页故障；citation_sources 10 项通过，Ruff 通过。
+- 修复后四源 CLI：OpenAlex 1、Google Scholar 27（报告总数最大46、truncated=true）、
+  ADS 21，Semantic Scholar 429；49 条原始记录聚合为43篇，整体 partial。
+  仍未获得 Google 声称的全部46条，不把该次结果当作完整召回。
+
+### 通用 citation 聚合与 ADS 接入（2026-09-15）
+
+- 新增 `tests/test_citation_sources.py`：8 项通过。覆盖 ADS 鉴权缺失/401、ID 规范化、
+  引用方向、分页与截断，Google Scholar 空结果与配额错误区分，以及通用标题回退、
+  两个 cluster 合并、冲突候选排除、跨源 DOI 去重和来源保留。测试使用虚构论文，
+  不将真实样例 ID 写入生产逻辑。
+- 既有 SerpApi 与 service 回归：34 passed。Ruff 检查通过。
+- 全套自动化测试：247 passed、33 skipped；跳过项为需显式开启的联网/OCR 测试，
+  本轮真实联网检索另以 CLI 完成，结果如下。
+- CLI 实测 `citations W7141256605 --source openalex,semantic_scholar,opencitations,google_scholar_serpapi --limit 100 --format json`：
+  Google Scholar 通过元数据回退自动解析，返回 17 条，OpenAlex 1 条；
+  Semantic Scholar 此次重试 5 次仍 429，OpenCitations 无 seed，结果 partial，共 18 篇。
+- 随后以 `https://arxiv.org/abs/2603.25723` 为输入，sources 为
+  `openalex,semantic_scholar,google_scholar_serpapi`，limit=100：
+  OpenAlex 1、Semantic Scholar 42、Google Scholar 17，原始 60 条，最终 papers 数量
+  **50**，其中后两源重叠 10 条。三个来源报告均 complete，但不意味着全网完整召回。
+- ADS_API_TOKEN 未配置；NASA ADS 已实现并通过模拟接口测试，尚未进行带授权的真实查询。
+  不能将三源实测结果称为 ADS＋Google Scholar＋Semantic Scholar 的实测结果。
+
+### CLI 阅读输出更新（2026-09-15）
+
+- `references/citations` 默认 `compact`；`detailed` 增加年份、作者、期刊/会议和可用 PDF。
+- 定向回归 `python -m pytest tests/test_cli.py -q -k "reading or compact_audit"`：
+  3 passed。覆盖 25 篇全部展示、长标题不截断、多源链接关联、隐藏内部错误、
+  详细字段、空结果及默认 CLI 模式。CLI 全套测试：18 passed；相关文件 Ruff 检查通过。
+- 真实 CLI 使用 DOI `10.48550/arxiv.2603.25723`、`--source openalex --limit 100`，
+  分别执行 `--format compact` 和 `--format detailed`，均成功返回 1 篇：
+  Reproducible and shareable bioinformatics pipelines from natural-language prompts。
+  DOI 与 OpenAlex 链接完整显示，详细模式显示作者、2026 年及 bioRxiv 平台。
+  此数量仅验证该来源当次结果与输出，不是该论文全网引用数或多源召回验收。
+
 测试分为三层，三层不能互相替代：
 
 1. **离线自动化测试**：使用固定响应、故障注入和本地样本验证业务规则，可重复、无公网依赖；
@@ -129,6 +256,23 @@ python -m pytest -q tests/test_live_ocr_pipeline.py
 | 2026-09-03 | Windows / Python 3.13.5 | 文档收敛前完整离线测试 | 227 passed，33 skipped |
 | 2026-09-03 | Windows / Python 3.13.5 | 文档收敛后 ruff/compileall/pytest | ruff、compileall 通过；227 passed，33 skipped，140.32 s |
 | 2026-09-03 | Claude Code 2.1.62 / stdio MCP | Claude Code C01-C10 | 九个 MCP 工具全部真实调用成功；见下表 |
+| 2026-09-14 | Windows / Python 3.13.5 / CLI | S2 429、跨源 seed、Google 多 cluster、关键词召回回归 | ruff/compileall 通过；236 passed，33 skipped；见 7.1；未使用 Claude/MCP |
+
+### 7.1 2026-09-14 CLI 真实回归
+
+本轮只运行 `python -m scholarly_retrieval` CLI，没有启动 Claude Agent 或 MCP。已确认：
+
+- `citations W7141256605 --source openalex,semantic_scholar,crossref,opencitations --limit 100`：OpenAlex
+  当前真实索引为 1；OpenAlex ID 已转译为 DOI 后交给其他来源；匿名 Semantic Scholar 在 5 次有界
+  退避后仍受 429 限流，因此最终仍是 1 条 `partial`。重试生效不等于上游最终会分配配额。
+- Google Scholar DOI 单 cluster 返回 15 条。调用两个历史 cluster 时，第一个可遍历，第二个被 SerpApi
+  判为不可用；容错实现保留可用簇并正确返回 `partial`，不会再出现 `failed` 却携带 papers 的矛盾状态。
+- 关键词案例 `dense retrieval open-domain question answering`，来源为 OpenAlex/Crossref/arXiv/DBLP，
+  `limit=20`。用 10 篇人工标题诊断集计数，修改前后 Recall@20 均为 8/10；修改前明显离题标题为
+  4/20，修改后为 0/20。结论是排序精度明显改善，但不能据此宣称全领域 recall 已提升。
+
+该 10 篇小型诊断集见 `benchmarks/keyword-recall-diagnostic.json`。它用于发现排序回归，不是经过双人
+标注的可发表 gold，也不能代表其他领域或数据库全库覆盖。
 
 Claude Code 最终证据摘要：
 

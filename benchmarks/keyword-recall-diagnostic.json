@@ -1,0 +1,37 @@
+{
+  "schema_version": "1",
+  "purpose": "Small human-curated CLI ranking diagnostic; not an adjudicated scientific gold set.",
+  "observed_at": "2026-09-14",
+  "query": "dense retrieval open-domain question answering",
+  "sources": ["openalex", "crossref", "arxiv", "dblp"],
+  "cutoff": 20,
+  "relevant_titles": [
+    "Dense Passage Retrieval for Open-Domain Question Answering",
+    "RocketQA: An Optimized Training Approach to Dense Passage Retrieval for Open-Domain Question Answering",
+    "Dense Hierarchical Retrieval for Open-domain Question Answering",
+    "Answering Complex Open-Domain Questions with Multi-Hop Dense Retrieval",
+    "Generation-Augmented Retrieval for Open-Domain Question Answering",
+    "Multi-Task Dense Retrieval via Model Uncertainty Fusion for Open-Domain Question Answering",
+    "Low-Resource Dense Retrieval for Open-Domain Question Answering: A Comprehensive Survey",
+    "SPARTA: Efficient Open-Domain Question Answering via Sparse Transformer Matching Retrieval",
+    "Distantly-Supervised Dense Retrieval Enables Open-Domain Question Answering without Evidence Annotation",
+    "Progressively Pretrained Dense Corpus Index for Open-Domain Question Answering"
+  ],
+  "observations": {
+    "before_global_fusion": {
+      "relevant_at_20": 8,
+      "recall_at_20": 0.8,
+      "obviously_off_topic_at_20": 4
+    },
+    "after_global_fusion": {
+      "relevant_at_20": 8,
+      "recall_at_20": 0.8,
+      "obviously_off_topic_at_20": 0
+    }
+  },
+  "limitations": [
+    "Titles were curated by one developer for a regression diagnostic.",
+    "Provider indexes and rankings change over time.",
+    "Recall is only with respect to these ten titles, not all relevant literature."
+  ]
+}

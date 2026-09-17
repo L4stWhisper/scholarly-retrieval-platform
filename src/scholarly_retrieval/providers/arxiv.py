@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import xml.etree.ElementTree as ET
 from datetime import date, datetime
 
@@ -28,6 +29,9 @@ ATOM = "http://www.w3.org/2005/Atom"
 ARXIV = "http://arxiv.org/schemas/atom"
 OPENSEARCH = "http://a9.com/-/spec/opensearch/1.1/"
 NS = {"atom": ATOM, "arxiv": ARXIV, "opensearch": OPENSEARCH}
+ARXIV_QUERY_STOP_WORDS = frozenset(
+    {"a", "an", "and", "by", "for", "from", "in", "of", "on", "the", "to", "via", "with"}
+)
 
 
 class ArxivProvider(ScholarlyProvider):
@@ -91,7 +95,10 @@ class ArxivProvider(ScholarlyProvider):
             raise ValueError(f"invalid arXiv Atom response: {exc}") from exc
 
     async def search(self, query: SearchQuery) -> ProviderBatch:
-        clauses = [f'all:"{self._escape_phrase(query.text)}"']
+        # A quoted multi-word all: clause is an exact phrase query and misses
+        # relevant papers that use the same terms in another order. Independent
+        # AND terms retain precision while materially improving recall.
+        clauses = [f'all:"{self._escape_phrase(term)}"' for term in self._search_terms(query.text)]
         execution = {"text": "provider"}
         if query.author:
             clauses.append(f'au:"{self._escape_phrase(query.author)}"')
@@ -265,3 +272,9 @@ class ArxivProvider(ScholarlyProvider):
     @staticmethod
     def _escape_phrase(value: str) -> str:
         return normalize_text(value).replace("\\", "\\\\").replace('"', '\\"')
+
+    @staticmethod
+    def _search_terms(value: str) -> list[str]:
+        tokens = [token.casefold() for token in re.findall(r"[^\W_]+", value)]
+        meaningful = [token for token in tokens if token not in ARXIV_QUERY_STOP_WORDS]
+        return meaningful or tokens or [value]

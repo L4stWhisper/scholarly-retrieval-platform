@@ -32,6 +32,10 @@ class RetryPolicy:
     max_attempts: int = 3
     base_delay_seconds: float = 0.5
     max_delay_seconds: float = 10.0
+    # Retry-After is an upstream admission instruction, not an exponential
+    # backoff sample. Keep a separate, bounded ceiling so a legitimate 30/60s
+    # response is not incorrectly shortened to max_delay_seconds.
+    max_retry_after_seconds: float = 120.0
     jitter_ratio: float = 0.2
     cache_ttl_seconds: float = 3600.0
     min_interval_seconds: float = 0.0
@@ -45,6 +49,10 @@ class RetryPolicy:
             raise ValueError("max_attempts must be at least 1")
         if self.max_concurrency < 1:
             raise ValueError("max_concurrency must be at least 1")
+        if self.base_delay_seconds < 0 or self.max_delay_seconds < 0:
+            raise ValueError("retry delays must not be negative")
+        if self.max_retry_after_seconds < 0:
+            raise ValueError("max_retry_after_seconds must not be negative")
 
 
 class ReliableHttpClient:
@@ -165,6 +173,7 @@ class ReliableHttpClient:
         use_cache: bool,
     ) -> httpx.Response:
         last_error: httpx.RequestError | None = None
+        retry_delays: list[float] = []
         for attempt in range(1, self.policy.max_attempts + 1):
             # POST is admitted only through post_json's side-effect-free query
             # contract. State-changing provider operations must not use this loop.
@@ -193,6 +202,7 @@ class ReliableHttpClient:
                 self._register_failure()
                 if not retry:
                     raise
+                retry_delays.append(delay or 0.0)
                 await self._sleep(delay or 0.0)
                 continue
 
@@ -215,7 +225,12 @@ class ReliableHttpClient:
             else:
                 self._register_success()
             if not retry:
+                response.extensions["scholarly_reliability"] = {
+                    "attempt_count": attempt,
+                    "retry_delays": retry_delays,
+                }
                 return response
+            retry_delays.append(delay or 0.0)
             await self._sleep(delay or 0.0)
         if last_error:
             raise last_error
@@ -233,10 +248,9 @@ class ReliableHttpClient:
 
     def _retry_delay(self, response: httpx.Response, attempt: int) -> float:
         retry_after = parse_retry_after(response.headers.get("retry-after"))
-        return min(
-            self.policy.max_delay_seconds,
-            retry_after if retry_after is not None else self._backoff(attempt),
-        )
+        if retry_after is not None:
+            return min(self.policy.max_retry_after_seconds, retry_after)
+        return self._backoff(attempt)
 
     def _backoff(self, attempt: int) -> float:
         base = min(

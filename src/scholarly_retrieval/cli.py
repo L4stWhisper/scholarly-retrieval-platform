@@ -54,6 +54,9 @@ DEFAULT_SOURCES = "openalex,semantic_scholar,crossref,arxiv,europe_pmc"
 
 
 class CliOutputFormat(StrEnum):
+    COMPACT = "compact"
+    DETAILED = "detailed"
+    AUDIT = "audit"
     JSON = "json"
     TABLE = "table"
 
@@ -78,6 +81,16 @@ def _json_for_output(payload, *, encoding: str | None = None) -> str:
 
 
 def _dump(value, *, output_format: CliOutputFormat = CliOutputFormat.JSON) -> None:
+    if output_format in (CliOutputFormat.COMPACT, CliOutputFormat.DETAILED):
+        typer.echo(
+            _console_safe(
+                _reading_for_result(value, detailed=output_format == CliOutputFormat.DETAILED)
+            )
+        )
+        return
+    if output_format == CliOutputFormat.AUDIT:
+        typer.echo(_console_safe(_audit_for_result(value)))
+        return
     if output_format == CliOutputFormat.TABLE:
         typer.echo(_console_safe(_table_for_result(value)))
         return
@@ -131,9 +144,7 @@ def _table_for_result(value) -> str:
     rows = [" ".join(summary), header, separator]
     for rank, paper in enumerate(papers, start=1):
         authors = "; ".join(author.name for author in paper.authors)
-        sources = "; ".join(
-            dict.fromkeys(source.provider for source in paper.source_records)
-        )
+        sources = "; ".join(dict.fromkeys(source.provider for source in paper.source_records))
         values = [
             str(rank),
             str(paper.publication_year or ""),
@@ -150,6 +161,46 @@ def _table_for_result(value) -> str:
         )
     if not papers:
         rows.append("[no papers]")
+    return "\n".join(rows)
+
+
+def _audit_for_result(value) -> str:
+    """Compatibility alias for the former audit view."""
+    return _reading_for_result(value)
+
+
+def _reading_for_result(value, *, detailed: bool = False) -> str:
+    """Display every canonical paper; never merge unrelated works by title here.
+
+    Identity resolution belongs to the service. Source URLs stay attached to
+    their own provider rather than being replaced by another provider's URL.
+    Diagnostic evidence remains in the persisted result and JSON export.
+    """
+    papers = list(getattr(value, "papers", []))
+    rows = [f"本次检索去重后论文：{len(papers)} 篇"]
+    seed = getattr(value, "seed", None)
+    if seed is not None:
+        rows.append(f"目标论文：{seed.title}")
+    for rank, paper in enumerate(papers, start=1):
+        rows.extend(["", f"{rank}. {paper.title}"])
+        if detailed:
+            rows.append(f"   年份：{paper.publication_year or '未提供'}")
+            rows.append("   作者：" + ("; ".join(a.name for a in paper.authors) or "未提供"))
+            if paper.venue:
+                rows.append(f"   期刊/会议：{paper.venue}")
+        if paper.landing_page_url:
+            rows.append(f"   论文链接：{paper.landing_page_url}")
+        seen = set()
+        for source in paper.source_records:
+            key = (source.provider, source.source_url)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(f"   来源：{source.provider} | {source.source_url or '未提供链接'}")
+        if not paper.source_records:
+            rows.append("   来源：未提供")
+        if detailed and paper.pdf_url:
+            rows.append(f"   PDF：{paper.pdf_url}")
     return "\n".join(rows)
 
 
@@ -371,8 +422,8 @@ def references(
     limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     source: Annotated[str, typer.Option()] = DEFAULT_SOURCES,
     output_format: Annotated[
-        CliOutputFormat, typer.Option("--format", help="json or table")
-    ] = CliOutputFormat.JSON,
+        CliOutputFormat, typer.Option("--format", help="compact or detailed; json for export")
+    ] = CliOutputFormat.COMPACT,
 ) -> None:
     """List works referenced by the seed paper."""
 
@@ -385,8 +436,8 @@ def citations(
     limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     source: Annotated[str, typer.Option()] = DEFAULT_SOURCES,
     output_format: Annotated[
-        CliOutputFormat, typer.Option("--format", help="json or table")
-    ] = CliOutputFormat.JSON,
+        CliOutputFormat, typer.Option("--format", help="compact or detailed; json for export")
+    ] = CliOutputFormat.COMPACT,
 ) -> None:
     """List later works citing the seed paper."""
 
@@ -633,8 +684,7 @@ def evaluate_identity_command(predicted_path: Path, gold_path: Path) -> None:
         predicted = json.loads(predicted_path.read_text(encoding="utf-8"))
         gold = json.loads(gold_path.read_text(encoding="utf-8"))
         if not isinstance(predicted, dict) or not all(
-            isinstance(key, str) and isinstance(value, str)
-            for key, value in predicted.items()
+            isinstance(key, str) and isinstance(value, str) for key, value in predicted.items()
         ):
             raise ValueError("predicted clusters must be a JSON object of string IDs")
         if not isinstance(gold, dict) or not all(
@@ -662,8 +712,7 @@ def evaluate_relations_command(predicted_path: Path, gold_path: Path) -> None:
         gold = json.loads(gold_path.read_text(encoding="utf-8"))
         for label, mapping in (("predicted", predicted), ("gold", gold)):
             if not isinstance(mapping, dict) or not all(
-                isinstance(key, str) and isinstance(value, str)
-                for key, value in mapping.items()
+                isinstance(key, str) and isinstance(value, str) for key, value in mapping.items()
             ):
                 raise ValueError(f"{label} relations must be a JSON object of string labels")
         result = relation_confusion_metrics(predicted, gold, labels=allowed)
@@ -677,9 +726,7 @@ def evaluate_references_command(gold_path: Path, results_path: Path) -> None:
     """Evaluate saved Reference linking results at five pipeline layers."""
 
     try:
-        dataset = ReferenceGoldDataset.model_validate_json(
-            gold_path.read_text(encoding="utf-8")
-        )
+        dataset = ReferenceGoldDataset.model_validate_json(gold_path.read_text(encoding="utf-8"))
         raw_results = json.loads(results_path.read_text(encoding="utf-8"))
         if not isinstance(raw_results, dict) or not all(
             isinstance(document_id, str) and isinstance(result, dict)
