@@ -60,7 +60,7 @@ scholar --help
 
 ### 配置（可选）
 
-多数来源无需密钥即可使用。建议至少申请免费的 Semantic Scholar key，否则该来源会持续限流：
+多数来源无需密钥即可使用。建议申请免费的 Semantic Scholar key 以获得独立配额与相关性排序：
 
 ```bash
 cp .env.example .env      # 填入 SEMANTIC_SCHOLAR_API_KEY 等；进程环境变量始终优先于文件
@@ -71,7 +71,7 @@ uv run scholar doctor     # 只报告密钥是否存在，不显示值
 
 ```bash
 # 关键词检索
-uv run scholar search "retrieval augmented generation" --limit 5 --format table
+uv run scholar search "retrieval augmented generation" --limit 5
 
 # 谁引用了这篇论文 / 这篇论文引用了谁
 uv run scholar citations "https://arxiv.org/abs/2603.25723" --limit 20

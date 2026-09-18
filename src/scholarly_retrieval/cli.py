@@ -181,6 +181,13 @@ def _reading_for_result(value, *, detailed: bool = False) -> str:
     seed = getattr(value, "seed", None)
     if seed is not None:
         rows.append(f"目标论文：{seed.title}")
+    query = getattr(value, "query", None)
+    query_text = getattr(query, "text", None)
+    if query_text:
+        rows.append(f"检索词：{query_text}")
+    seeds = list(getattr(query, "positive_identifiers", []) or [])
+    if seeds:
+        rows.append("种子论文：" + "; ".join(seeds))
     for rank, paper in enumerate(papers, start=1):
         rows.extend(["", f"{rank}. {paper.title}"])
         if detailed:
@@ -306,8 +313,9 @@ def search(
         typer.Option(help="JSON Boolean/phrase SearchExpression AST"),
     ] = None,
     output_format: Annotated[
-        CliOutputFormat, typer.Option("--format", help="json or table")
-    ] = CliOutputFormat.JSON,
+        CliOutputFormat,
+        typer.Option("--format", help="compact or detailed; json for export; table is legacy"),
+    ] = CliOutputFormat.COMPACT,
 ) -> None:
     """Search one or more scholarly providers."""
 
@@ -376,8 +384,9 @@ def related(
     rrf_k: Annotated[int, typer.Option(min=1, max=1000)] = 60,
     source: Annotated[str, typer.Option()] = "openalex,semantic_scholar",
     output_format: Annotated[
-        CliOutputFormat, typer.Option("--format", help="json or table")
-    ] = CliOutputFormat.JSON,
+        CliOutputFormat,
+        typer.Option("--format", help="compact or detailed; json for export; table is legacy"),
+    ] = CliOutputFormat.COMPACT,
 ) -> None:
     """Find related papers with semantic and seed recommendation retrieval."""
 

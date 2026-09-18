@@ -8,7 +8,7 @@ CLI 是一次命令、一次结果，不监听端口。完整参数以 `scholar 
 ### 1. 关键词检索
 
 ```bash
-scholar search "retrieval augmented generation" --limit 5 --format table
+scholar search "retrieval augmented generation" --limit 5
 ```
 
 关键词检索会从每个来源拉取最多 `limit × 3`（上限 100）的候选，完成跨源去重后，用来源名次 RRF、
@@ -62,7 +62,8 @@ scholar related --positive "10.1038/s41586-021-03819-2" --limit 10
 
 ## 结果阅读模式
 
-`references` 和 `citations` 提供两种阅读模式，均输出本次返回的全部去重论文，不截断标题：
+`search`、`related`、`references` 和 `citations` 提供两种阅读模式，均输出本次返回的全部去重论文，
+不截断标题；`search` 会先打印检索词，`related` 打印种子论文，`references`/`citations` 打印目标论文：
 
 - `--format compact`（默认）：去重后数量、每篇论文的完整名称、论文链接、各来源及其链接；
 - `--format detailed`：在精简模式基础上增加年份、作者、期刊/会议及可用 PDF 链接。
@@ -71,7 +72,7 @@ scholar related --positive "10.1038/s41586-021-03819-2" --limit 10
 指标、限流或失败原因；程序调用应显式使用 `--format json`，并同时检查进程退出码、`status` 和
 `provider_reports`。
 
-`search`、`resolve` 和 `related` 默认输出 JSON，也可用 `--format table` 供人工浏览。
+`resolve` 默认输出 JSON。`--format table` 是保留的旧版单行表格，会截断标题与来源，仅用于兼容。
 
 ## 多跳引文扩展
 

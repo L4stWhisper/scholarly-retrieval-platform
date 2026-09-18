@@ -323,6 +323,52 @@ def test_search_table_option_uses_shared_library_result(monkeypatch) -> None:
     assert '"papers"' not in result.stdout
 
 
+def test_search_defaults_to_reading_output_with_query_header(monkeypatch) -> None:
+    class ReadingService:
+        async def search(self, query, *, sources):
+            return SimpleNamespace(
+                status="complete",
+                truncated=False,
+                fingerprint="v1:reading",
+                query=query,
+                papers=[
+                    Paper(
+                        record_id="openalex:W1",
+                        title="A very long title that a table would clip but reading mode keeps",
+                        landing_page_url="https://doi.org/10.1000/x",
+                        source_records=[
+                            SourceRecord(
+                                provider="openalex",
+                                source_record_id="W1",
+                                source_url="https://openalex.org/W1",
+                            ),
+                            SourceRecord(
+                                provider="arxiv",
+                                source_record_id="2401.00001",
+                                source_url="https://arxiv.org/abs/2401.00001",
+                            ),
+                        ],
+                    )
+                ],
+            )
+
+        async def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(cli_module, "ScholarService", ReadingService)
+
+    result = runner.invoke(app, ["search", "citation graph", "--source", "openalex"])
+
+    assert result.exit_code == 0
+    assert "本次检索去重后论文：1 篇" in result.stdout
+    assert "检索词：citation graph" in result.stdout
+    assert "1. A very long title that a table would clip but reading mode keeps" in result.stdout
+    assert "论文链接：https://doi.org/10.1000/x" in result.stdout
+    assert "来源：openalex | https://openalex.org/W1" in result.stdout
+    assert "来源：arxiv | https://arxiv.org/abs/2401.00001" in result.stdout
+    assert "RECORD ID" not in result.stdout and '"papers"' not in result.stdout
+
+
 def test_query_plan_is_offline_and_discloses_filter_execution() -> None:
     result = runner.invoke(
         app,
