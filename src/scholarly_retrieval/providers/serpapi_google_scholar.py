@@ -67,6 +67,7 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
         client: httpx.AsyncClient | None = None,
         store: SQLiteStore | None = None,
         citation_rounds: int | None = None,
+        page_retries: int | None = None,
         discovery_pages: int = 12,
     ) -> None:
         key = api_key or os.getenv("SERPAPI_API_KEY")
@@ -75,9 +76,21 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
         self._api_key = key
         if citation_rounds is None:
             citation_rounds = int(os.getenv("SCHOLAR_GOOGLE_CITATION_ROUNDS", "4"))
-        if citation_rounds < 2 or discovery_pages < 1:
-            raise ValueError("citation_rounds must be >= 2 and discovery_pages >= 1")
+        if page_retries is None:
+            page_retries = int(os.getenv("SCHOLAR_GOOGLE_PAGE_RETRIES", "3"))
+        if citation_rounds < 2 or discovery_pages < 1 or page_retries < 0:
+            raise ValueError(
+                "citation_rounds must be >= 2, discovery_pages >= 1 and page_retries >= 0"
+            )
         self._citation_rounds = citation_rounds
+        # Per-round budget for re-requesting pages that came from a stale
+        # Google index snapshot. Each retry is one fresh SerpApi search.
+        self._page_retries = page_retries
+        # "Cited by N" advertised by Google on a seed record, keyed by cites ID.
+        # Used as the floor of the cites list's total while paging, so a page
+        # served from a smaller snapshot is recognized even before any page of
+        # the current run has advertised the larger count.
+        self._advertised_totals: dict[str, int] = {}
         self._discovery_pages = discovery_pages
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(
@@ -107,7 +120,16 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
             raise ValueError("SerpApi Google Scholar returned an API error")
         return payload
 
+    def _note_advertised_totals(self, paper: Paper) -> None:
+        for record in paper.source_records:
+            cites_id = record.retrieval_context.get("cites_id")
+            advertised = record.retrieval_context.get("cited_by_total")
+            if record.provider == self.name and cites_id and isinstance(advertised, int):
+                key = str(cites_id)
+                self._advertised_totals[key] = max(self._advertised_totals.get(key, 0), advertised)
+
     def traversal_identifier(self, paper: Paper, fallback: str) -> str:
+        self._note_advertised_totals(paper)
         # A versions cluster is not necessarily the identifier of its Cited by
         # list. Only use cites IDs explicitly returned by the upstream service.
         cites = list(
@@ -354,6 +376,7 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
             seed = await self.resolve(identifier)
             if seed is None:
                 return ProviderBatch()
+            # traversal_identifier() also records the seed's advertised counts.
             traversal = self.traversal_identifier(seed, "")
             cites_ids = self._cluster_ids(traversal.removeprefix("google_scholar:"))
         papers: list[Paper] = []
@@ -362,7 +385,11 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
         batches = []
         for cites_id in cites_ids:
             try:
-                batch = await self._citation_pages({"cites": cites_id}, limit=limit)
+                batch = await self._citation_pages(
+                    {"cites": cites_id},
+                    limit=limit,
+                    advertised=self._advertised_totals.get(cites_id),
+                )
             except (httpx.HTTPError, ValueError) as exc:
                 failures.append(exc)
                 outcomes.append(
@@ -421,8 +448,21 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
             start = next_start
         return papers[:limit], total, next_start
 
-    async def _citation_pages(self, params: dict[str, str], *, limit: int) -> ProviderBatch:
+    async def _citation_pages(
+        self, params: dict[str, str], *, limit: int, advertised: int | None = None
+    ) -> ProviderBatch:
         """Fresh, next-link-driven rounds; stability is observed, not guaranteed.
+
+        Google serves one cites list from index snapshots that disagree with
+        each other: a page may advertise 21 results while the next page of the
+        same round advertises 47, and a page advertised by a next link may come
+        back empty. Pages from the smaller snapshot overlap the larger one, so a
+        plain union of pages is short. Each page is therefore checked against
+        the round's consensus (the largest total seen so far); a page that
+        reports fewer results, or is empty after a next link, is re-requested
+        within a bounded per-round budget before the round moves on. A "Cited
+        by N" the seed record advertised seeds that consensus, so a list that
+        never reaches N stays partial instead of looking stably complete.
 
         Repeated observations within one cites list are coalesced by result ID.
         Cross-cites observations are retained by citations() for service merging.
@@ -432,48 +472,35 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
             return ProviderBatch()
         observed: dict[str, Paper] = {}
         previous: set[str] | None = None
-        total: int | None = None
+        total: int | None = advertised
         rounds = []
         stable = False
         reason = "round_budget"
         next_cursor = None
-        max_pages = (limit + 9) // 10 + 2
+        # Scholar's largest page. Fewer pages per round means fewer chances of
+        # crossing between inconsistent snapshots inside one round.
+        page_size = min(20, limit)
+        max_pages = (limit + page_size - 1) // page_size + 2
         for round_index in range(1, self._citation_rounds + 1):
             current = {
                 **params,
                 "start": "0",
-                "num": str(min(10, limit)),
+                "num": str(page_size),
                 "filter": "0",
                 "no_cache": "true",
             }
             round_ids: set[str] = set()
-            pages = []
+            pages: list[dict[str, Any]] = []
             finished = False
             error = None
-            for _ in range(max_pages):
-                try:
-                    payload = await self._query(current, "citations")
-                except (httpx.HTTPError, ValueError) as exc:
-                    if not observed:
-                        raise
-                    error = type(exc).__name__
-                    reason = "request_failed"
-                    next_cursor = current["start"]
-                    break
-                reported = payload.get("search_information", {}).get("total_results")
-                if isinstance(reported, int) and reported >= 0:
-                    total = max(total or 0, reported)
-                items = payload.get("organic_results", [])
-                pages.append(
-                    {
-                        "start": current["start"],
-                        "returned": len(items),
-                        "reported_total": reported,
-                        # Compare archived HTML with this exact JSON response,
-                        # not with another fresh search that may have changed.
-                        "search_id": (payload.get("search_metadata") or {}).get("id"),
-                    }
-                )
+            retries_left = self._page_retries
+
+            def merge(
+                items: list[dict[str, Any]],
+                start: str,
+                round_index: int = round_index,
+                round_ids: set[str] = round_ids,
+            ) -> None:
                 for item in items:
                     paper = self._paper(item)
                     round_ids.add(paper.record_id)
@@ -485,7 +512,54 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
                     if paper.record_id in observed:
                         observed[paper.record_id].source_records[0].retrieval_context[
                             "observations"
-                        ].append({"round": round_index, "start": current["start"]})
+                        ].append({"round": round_index, "start": start})
+
+            for _ in range(max_pages):
+                attempts: list[dict[str, Any]] = []
+                try:
+                    while True:
+                        payload = await self._query(current, "citations")
+                        reported = payload.get("search_information", {}).get("total_results")
+                        if not isinstance(reported, int) or reported < 0:
+                            reported = None
+                        items = payload.get("organic_results", [])
+                        # Every attempt is a real observation; keep its papers.
+                        merge(items, current["start"])
+                        attempts.append(
+                            {
+                                "returned": len(items),
+                                "reported_total": reported,
+                                # Compare archived HTML with this exact JSON response,
+                                # not with another fresh search that may have changed.
+                                "search_id": (payload.get("search_metadata") or {}).get("id"),
+                            }
+                        )
+                        # A smaller total than already advertised, or an empty
+                        # page that a next link or the advertised count
+                        # promised, is a stale snapshot.
+                        stale = (
+                            reported is not None and total is not None and reported < total
+                        ) or (not items and (current["start"] != "0" or bool(total)))
+                        if not stale or retries_left == 0:
+                            break
+                        retries_left -= 1
+                except (httpx.HTTPError, ValueError) as exc:
+                    if not observed:
+                        raise
+                    error = type(exc).__name__
+                    reason = "request_failed"
+                    next_cursor = current["start"]
+                    break
+                if reported is not None:
+                    total = max(total or 0, reported)
+                pages.append(
+                    {
+                        "start": current["start"],
+                        **attempts[-1],
+                        "stale": stale,
+                        "stale_retries": len(attempts) - 1,
+                    }
+                )
                 try:
                     following = self._next_params(payload, current)
                 except ValueError:
@@ -501,12 +575,22 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
                     reason = "result_limit"
                     break
                 current = following
+            # A consistent round saw one advertised total on every page and no
+            # stale page survived its retries: the pages came from one snapshot.
+            consistent = (
+                finished
+                and error is None
+                and bool(pages)
+                and all(p["reported_total"] == total and not p["stale"] for p in pages)
+            )
             rounds.append(
                 {
                     "round": round_index,
                     "pages": pages,
                     "observed_count": len(round_ids),
                     "ended": finished,
+                    "consistent": consistent,
+                    "stale_retries": self._page_retries - retries_left,
                     "error": error,
                 }
             )
@@ -534,7 +618,10 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
                 "stop_reason": reason,
                 "stable": stable,
                 "no_cache": True,
+                "page_size": page_size,
+                "advertised_total": advertised,
                 "max_rounds": self._citation_rounds,
+                "page_retries_per_round": self._page_retries,
             },
         )
 
@@ -635,6 +722,10 @@ class SerpApiGoogleScholarProvider(ScholarlyProvider):
                     retrieval_context={
                         "cluster_id": cluster_id or None,
                         "cites_id": cites_id or None,
+                        # Google's own "Cited by" count for this cites list.
+                        "cited_by_total": (
+                            int(count) if isinstance(count, int) and count >= 0 else None
+                        ),
                     },
                 )
             ],

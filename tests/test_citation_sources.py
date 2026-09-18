@@ -258,10 +258,17 @@ def test_scholar_fresh_rounds_follow_next_and_recover_false_last_page():
         ) as client:
             provider = SerpApiGoogleScholarProvider(api_key="fixture", client=client)
             batch = await provider.citations("google_scholar:111", limit=100)
-            assert offsets == [0, 0, 10, 20, 0, 10, 20]
+            # Round 3 sees page 0 advertise 2 after page 10 advertised 4, so the
+            # stale page is re-requested up to the per-round budget before
+            # moving on; the round still completes and stability is reached.
+            assert offsets == [0, 0, 10, 20, 0, 0, 0, 0, 10, 20]
             assert len(batch.papers) == 4
             assert batch.total_available == 4
             assert not batch.truncated
+            rounds = batch.context["cluster_outcomes"][0]["rounds"]
+            assert [r["stale_retries"] for r in rounds] == [0, 0, 3]
+            assert rounds[2]["pages"][0]["stale"] and rounds[2]["pages"][0]["stale_retries"] == 3
+            assert not rounds[2]["consistent"]
 
     asyncio.run(scenario())
 
