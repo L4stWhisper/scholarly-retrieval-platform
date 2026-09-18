@@ -88,6 +88,27 @@ ResultT = TypeVar(
 )
 REFERENCE_LINK_CONCURRENCY = 4
 SEARCH_RRF_K = 60
+# Registry record types that are not scholarly works. Crossref indexes
+# supplementary files ("component", e.g. 10.1021/x.s001), peer-review reports
+# and grants under their own DOIs; they only duplicate or dilute keyword
+# results unless a caller asks for such types explicitly.
+SEARCH_EXCLUDED_WORK_TYPES = frozenset({"component", "peer-review", "grant"})
+# (suffix, replacement, minimum stem length); first match wins.
+SEARCH_STEM_RULES = (
+    ("ies", "y", 3),
+    ("sses", "ss", 3),
+    ("ches", "ch", 3),
+    ("shes", "sh", 3),
+    ("xes", "x", 3),
+    ("zes", "z", 3),
+    ("ings", "", 4),
+    ("ing", "", 4),
+    ("ed", "", 4),
+    ("ss", "ss", 3),
+    ("us", "us", 3),
+    ("is", "is", 3),
+    ("s", "", 4),
+)
 SEARCH_STOP_WORDS = frozenset(
     {
         "a",
@@ -1666,10 +1687,10 @@ class ScholarService:
             query.field.casefold() in value.casefold() for value in paper.fields_of_study
         ):
             return False
-        if query.work_types and (
-            paper.work_type is None
-            or " ".join(paper.work_type.split()).casefold() not in query.work_types
-        ):
+        work_type = " ".join(paper.work_type.split()).casefold() if paper.work_type else None
+        if query.work_types and (work_type is None or work_type not in query.work_types):
+            return False
+        if not query.work_types and work_type in SEARCH_EXCLUDED_WORK_TYPES:
             return False
         if (
             query.min_citations is not None
@@ -1744,8 +1765,11 @@ class ScholarService:
         document_frequency = {
             token: sum(token in tokens for tokens in documents.values()) for token in query_tokens
         }
+        # Squared IDF lets the rare, topic-carrying query term dominate: a record
+        # matching only the generic terms of a query cannot outrank one that
+        # matches the discriminative term. Coverage stays soft (no hard filter).
         weights = {
-            token: math.log((document_count + 1) / (document_frequency[token] + 1)) + 1.0
+            token: (math.log((document_count + 1) / (document_frequency[token] + 1)) + 1.0) ** 2
             for token in query_tokens
         }
         total_weight = sum(weights.values()) or 1.0
@@ -1790,7 +1814,23 @@ class ScholarService:
     def _search_tokens(value: str) -> set[str]:
         tokens = {token.casefold() for token in re.findall(r"[^\W_]+", value)}
         meaningful = tokens - SEARCH_STOP_WORDS
-        return meaningful or tokens
+        return {ScholarService._stem(token) for token in (meaningful or tokens)}
+
+    @staticmethod
+    def _stem(token: str) -> str:
+        """Light, deterministic English suffix stripping for lexical matching.
+
+        Without this, a query term such as "harness" never matches a title
+        containing "harnesses" and the highest-IDF term of the query is lost.
+        The rules are intentionally conservative; they never touch short tokens.
+        """
+
+        if len(token) <= 4 or not token.isalpha():
+            return token
+        for suffix, replacement, minimum in SEARCH_STEM_RULES:
+            if token.endswith(suffix) and len(token) - len(suffix) >= minimum:
+                return token[: -len(suffix)] + replacement
+        return token
 
     @staticmethod
     def _provider_contributions(

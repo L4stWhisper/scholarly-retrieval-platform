@@ -927,3 +927,54 @@ def test_library_rejects_blank_identifiers_and_unbounded_relation_work() -> None
                 raise AssertionError("invalid library input must fail before provider I/O")
 
     asyncio.run(scenario())
+
+
+def test_search_tokens_use_light_stemming_for_plurals_and_inflections() -> None:
+    tokens = ScholarService._search_tokens
+    assert tokens("Natural-Language Agent Harnesses") == tokens("natural language agent harness")
+    assert ScholarService._stem("harnesses") == "harness"
+    assert ScholarService._stem("retrieving") == "retriev"
+    assert ScholarService._stem("retrieved") == "retriev"
+    assert ScholarService._stem("queries") == "query"
+    assert ScholarService._stem("analysis") == "analysis"
+    assert ScholarService._stem("class") == "class"
+    assert ScholarService._stem("bert") == "bert"
+
+
+def test_keyword_search_ranks_inflected_title_match_above_partial_matches() -> None:
+    async def scenario() -> None:
+        provider = RankedKeywordProvider(
+            "only",
+            [
+                "Agent-based Natural Language Interface to Robots",
+                "Natural-Language Agent Harnesses",
+                "Intelligent Natural Language Dialogue Agent",
+            ],
+        )
+        service = ScholarService([provider])
+        result = await service.search(SearchQuery(text="natural language agent harness", limit=3))
+        assert result.papers[0].title == "Natural-Language Agent Harnesses"
+
+    asyncio.run(scenario())
+
+
+def test_throttled_report_includes_provider_hint() -> None:
+    class HintedProvider(FakeProvider):
+        name = "hinted"
+        throttle_hint = "configure HINTED_API_KEY"
+
+        async def search(self, query: SearchQuery) -> ProviderBatch:
+            request = httpx.Request("GET", "https://hinted.example/search")
+            response = httpx.Response(429, request=request)
+            raise httpx.HTTPStatusError("throttled", request=request, response=response)
+
+    async def scenario() -> None:
+        service = ScholarService([HintedProvider()])
+        result = await service.search(SearchQuery(text="anything", limit=3))
+        report = result.provider_reports[0]
+        assert report.status == RunStatus.THROTTLED
+        assert report.error_code == "http_429"
+        assert "configure HINTED_API_KEY" in (report.error_message or "")
+        assert "hinted.example" not in (report.error_message or "")
+
+    asyncio.run(scenario())
