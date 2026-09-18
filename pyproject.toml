@@ -19,6 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 dependencies = [
@@ -37,6 +38,18 @@ api = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1"]
 mcp = ["mcp>=1.27,<2"]
 ocr = ["ocrmypdf>=17,<18", "pillow>=11,<13"]
 distributed = ["redis>=5,<7"]
+
+[project.urls]
+Homepage = "https://github.com/L4stWhisper/scholarly-retrieval-platform"
+Documentation = "https://github.com/L4stWhisper/scholarly-retrieval-platform/tree/main/docs"
+Issues = "https://github.com/L4stWhisper/scholarly-retrieval-platform/issues"
+
+# uv installs this group by default (`uv sync`); pip users keep the `dev` extra.
+[dependency-groups]
+dev = [
+  "pytest>=8,<9",
+  "ruff>=0.9,<1",
+]
 
 [project.scripts]
 scholar = "scholarly_retrieval.cli:app"
