@@ -58,9 +58,10 @@ bibcode 是来源记录 ID，DOI/arXiv claims 进入既有身份去重流程，s
 官方接口与授权依据：[ADS API](https://github.com/adsabs/adsabs-dev-api)、
 [引用运算符](https://adsabs.github.io/help/search/citations-and-references)。
 
-CLI 关系检索的阅读层提供 `compact` 与 `detailed`：从服务层已去重的
-`papers` 全量渲染，以完整论文标题组织来源及 `source_url`。详细模式补充年份、
-作者、venue 和 PDF；不在显示层按相同标题再次合并，避免误合并不同论文。
+CLI 的 `search`、`related`、`references`、`citations` 阅读层提供 `compact`（默认）与
+`detailed`：从服务层已去重的 `papers` 全量渲染，以完整论文标题组织来源及 `source_url`，并分别
+打印检索词、种子论文或目标论文作为表头。详细模式补充年份、作者、venue 和 PDF；不在显示层按
+相同标题再次合并，避免误合并不同论文。`resolve` 与诊断类命令默认输出 JSON。
 内部来源报告、身份决策及错误上下文仍进入原有持久化和 JSON 数据契约。
 终端数量仅表示本次返回的去重结果，受请求 limit 和上游覆盖影响。
 
@@ -132,7 +133,7 @@ SearchQuery
 | `providers/base.py` | `ScholarlyProvider` 抽象接口、能力清单、预期 Provider 错误 |
 | `providers/registry.py` | 默认 Provider 工厂、顺序和可选凭证 gating |
 | `normalization.py` | DOI、arXiv、OpenAlex、OpenReview、ACL Anthology 标识规范化 |
-| `identity.py` | 强标识 must-link、冲突 cannot-link、灰区 review 和字段合并 |
+| `identity.py` | 强标识 key 归一（arXiv DOI、版本后缀）、must-link、冲突 cannot-link、灰区 review 和字段合并 |
 | `entities.py` | Paper 到 Manifestation、Version、WorkFamily、Artifact 的投影 |
 | `query_language.py` | Provider-neutral AND/OR/NOT/phrase 字段表达式本地求值 |
 | `reliability.py` | HTTP 缓存、并发/节奏、Retry-After、退避、熔断和 URL 脱敏 |
@@ -151,23 +152,23 @@ SearchQuery
 
 | 文件 | 责任 |
 |---|---|
-| `cli.py` / `__main__.py` | Typer CLI、JSON/table 输出、文件输入和用户错误 |
+| `cli.py` / `__main__.py` | Typer CLI、compact/detailed 阅读输出、JSON 导出、旧版 table、文件输入和用户错误 |
 | `api.py` | FastAPI、OpenAPI、鉴权、请求体限制、同步/异步图路由 |
 | `mcp_server.py` | FastMCP stdio/Streamable HTTP、工具 schema、bearer verifier、配额 |
 | `worker.py` | Redis 队列图扩展 worker 和取消检查 |
-| `config.py` | `.env` 加载与不泄露密钥值的诊断 |
+| `config.py` | `.env` 查找顺序（显式路径、`./.env`、用户级文件）、进程环境优先与不泄露密钥值的诊断 |
 
 ### 3.3 部署与 Agent 工件
 
 | 路径 | 责任 |
 |---|---|
-| `pyproject.toml` | 构建元数据、依赖 extras、console scripts、pytest/ruff 配置 |
+| `pyproject.toml` / `uv.lock` / `.python-version` | 构建元数据、依赖 extras、uv 依赖组与锁定版本、console scripts、pytest/ruff 配置 |
 | `.mcp.json` | Claude Code 项目级 stdio MCP 配置 |
 | `skills/scholarly-research/SKILL.md` | Agent 检索路由、预算和证据解释规则 |
 | `Dockerfile` | 普通 HTTP API 镜像 |
 | `Dockerfile.ocr` / `compose.ocr.yaml` | OCRmyPDF + Tesseract + GROBID 可复现实验环境 |
 | `compose.distributed.yaml` | Nginx、API replicas、workers、Redis 的可选部署切片 |
-| `.github/workflows/ci.yml` | Python 版本矩阵静态与离线测试 |
+| `.github/workflows/ci.yml` | 通过 uv 在 Python 3.11–3.13 矩阵上执行 lint、compileall 与离线测试 |
 | `benchmarks/` | 自动化测试读取的版本化真实数据 smoke 案例；不是性能跑分或人工 gold |
 | `manual-tests/` | 人工选择论文的可复核结果与来源清单；第三方 PDF 不进入 Git |
 
@@ -327,7 +328,7 @@ Top-K、per-node limit、年份/类型候选过滤和运行时间预算。
 |---|---|---:|---:|---:|---:|---|
 | OpenAlex | 综合开放图谱 | 是 | 是 | list | list | cursor、referenced works、`cites:`、semantic |
 | OpenAIRE | 开放仓储/项目/长尾 | 是 | 是 | none | none | Graph API v3、cursor/page |
-| Semantic Scholar | 综合图与推荐 | 是 | 是 | list | list | graph/recommendations、key 可选但推荐 |
+| Semantic Scholar | 综合图与推荐 | 是 | 是 | list | list | graph/recommendations；无 key 走 bulk search/batch lookup，有 key 用相关性端点 |
 | Crossref | DOI 注册元数据 | 是 | DOI | list | count | deposited ref 不保证完整；citing 仅 count |
 | DataCite | 数据集/软件 DOI | 是 | DOI | none | count | CC0 元数据为主 |
 | DBLP | 计算机科学书目 | 是 | DOI/key | none | none | 搜索 JSON、单记录 XML |
@@ -399,7 +400,7 @@ artifact 获取模块，并实现 URL/重定向/SSRF、大小、类型、哈希�
 - 优先解析 `Retry-After`，其独立安全上限为 120 秒，不再被指数退避的 10/30 秒上限错误截短；
 - 最终 HTTP 响应把 `attempt_count` 和实际 `retry_delays` 写入 Provider report context，未启用 SQLite 时
   也能判断退避是否真的执行；
-- 每个 Provider 独立 semaphore、最小间隔、缓存 TTL 和内存熔断；
+- 每个 Provider 独立 semaphore、最小间隔和缓存 TTL；内存熔断按请求路径计数（见上）；
 - 参数排序生成稳定 cache key；持久 URL 对 key/token 等参数脱敏；
 - Authorization 不持久化，错误消息不回显带凭证 URL；
 - Provider payload 的 AttributeError/KeyError/TypeError/ValueError 隔离到单分支报告。
@@ -436,6 +437,13 @@ SQLite 是运行快照和单机证据库，不是全局论文知识库：没有�
 
 CLI、API、MCP 的输入最终构造同一 Pydantic 模型，输出同一结果模型。新增字段应先进入 Library，
 再由薄适配层自动暴露；禁止在接口层复制去重、分页或图逻辑。
+
+CLI：
+
+- `search`、`related`、`references`、`citations` 默认 `compact` 阅读输出，`detailed` 增加字段，
+  `json` 供程序导出，`table` 仅作旧版兼容；`resolve`、`providers`、`doctor` 等默认 JSON；
+- 阅读输出不显示来源报告、限流或失败原因；这些只在 JSON 的 `provider_reports` 中；
+- 用户输入或配置错误以 `error:` 前缀和退出码 2 结束，不打印 Python traceback。
 
 HTTP API：
 

@@ -40,7 +40,9 @@ Use the MCP schema presented by the client as the authority for MCP argument nam
 
 The open registry contains `openalex`, `openaire`, `semantic_scholar`, `crossref`, `datacite`,
 `dblp`, `acl_anthology`, `arxiv`, `openreview`, `europe_pmc`, `inspire`, and `opencitations`.
-`google_scholar_serpapi` exists only when the user supplies its key.
+`google_scholar_serpapi` exists only when the user supplies a SerpApi key, and `ads` only when
+an ADS token is configured. `semantic_scholar` works without a key through its bulk-search and
+batch-lookup endpoints; a key adds relevance-ranked search and a dedicated quota.
 
 Normally let capability routing choose sources. Select sources when the user requests them, a
 domain source is useful, or comparing coverage is part of the task. Useful combinations include:

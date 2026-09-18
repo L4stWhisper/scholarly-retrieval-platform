@@ -244,23 +244,27 @@ L Pan、L Zou、S Guo、J Ni、HT Zheng，出版信息指向 arxiv.org/abs/2603.
 
 | 范围 | 主要验证点 | 代表性测试 |
 |---|---|---|
-| 模型与序列化 | Paper、标识符、状态、cursor、稳定 fingerprint | `test_models.py`、`test_serialization.py` |
-| Provider 适配器 | 请求映射、响应解析、404、429、分页、能力声明 | `test_*_provider.py` |
-| 聚合与去重 | 强标识合并、标题灰区、字段选择、provenance | `test_dedup.py`、`test_field_merge.py` |
-| 四种检索 | keyword、advanced、reference/citation、related | `test_service.py`、`test_related.py` |
-| 引文图 | `citing -> cited`、多源 assertion、图预算与路径 | `test_graph.py`、`test_citation_*.py` |
-| Reference pipeline | JATS/TEI/LaTeX/BibTeX/PDF、候选评分、拒绝灰区 | `test_reference_*.py`、`test_grobid_client.py` |
-| 持久化与评估 | SQLite、缓存、维护、review、gold/evaluation/export | `test_storage.py`、`test_evaluation.py`、`test_exporters.py` |
-| 接口一致性 | CLI、FastAPI/OpenAPI、MCP 九工具 schema | `test_cli*.py`、`test_api*.py`、`test_mcp*.py` |
-| 生产边界 | 鉴权、限流、请求体限制、Redis jobs、OCR 安全限制 | `test_security.py`、`test_redis_*.py`、`test_ocr_*.py` |
-| 仓库契约 | 三主文档、链接、入口点、Skill 聚焦、密钥忽略 | `test_repository_docs.py` |
+| 模型与规范化 | Paper、标识符、状态、cursor、稳定 fingerprint、DOI/arXiv 规范化 | `test_models.py`、`test_normalization.py`、`test_entities.py` |
+| Provider 适配器 | 请求映射、响应解析、404、429、分页、能力声明、匿名端点回退 | `test_*_provider.py` |
+| Google Scholar 分页 | 多轮一致性、陈旧快照页重拉、标称总数下限、官方 next 对照 | `test_scholar_consistency.py`、`test_scholar_snapshot_consistency.py`、`test_scholar_pagination_diagnostic.py` |
+| 聚合与去重 | 强标识 key 归一与合并、标题灰区、传递冲突、字段选择、provenance | `test_identity.py` |
+| 四种检索 | keyword 排序与类型排除、advanced、reference/citation、related、seed 转译 | `test_service.py`、`test_citation_sources.py` |
+| 引文图 | `citing -> cited`、多源 assertion、图预算与路径 | `test_graph_expansion.py`、`test_citation_sources.py` |
+| 查询语言 | AND/OR/NOT/phrase 表达式本地求值 | `test_query_language.py` |
+| Reference pipeline | JATS/TEI/LaTeX/BibTeX/PDF/OCR、候选评分、拒绝灰区、smoke 与分层评测 | `test_reference_*.py` |
+| 可靠性 | 重试、Retry-After、按路径熔断、缓存键与脱敏 | `test_reliability.py` |
+| 持久化与评估 | SQLite、缓存、维护、review、gold/evaluation/export | `test_storage.py`、`test_export_and_evaluation.py`、`test_benchmark.py` |
+| 接口一致性 | CLI 阅读/JSON 输出、FastAPI/OpenAPI、MCP 九工具 schema | `test_cli.py`、`test_api.py`、`test_mcp_server.py` |
+| 配置与分布式 | `.env` 查找顺序与进程环境优先、Redis jobs 与配额 | `test_config.py`、`test_distributed.py` |
+| 真实接口（opt-in） | 公网 Provider 契约、开放元数据源、OCR 管线 | `test_live_*.py` |
+| 仓库契约 | README 入口、`docs/` 指南、链接、入口点、Skill 聚焦、密钥忽略、文档与代码同步 | `test_repository_docs.py` |
 
 标准离线验收命令：
 
-```powershell
-python -m ruff check src tests
-python -m compileall -q src tests
-python -m pytest -q
+```bash
+uv run ruff check src tests tools
+uv run python -m compileall -q src tests
+uv run pytest -q
 ```
 
 预期：ruff 和 compileall 退出码为 0；pytest 无失败。带有 `live` 或 `ocr` 标记的环境型用例在未显式启用时应跳过，而不是偷偷访问公网或本机容器。
