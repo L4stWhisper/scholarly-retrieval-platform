@@ -88,6 +88,18 @@ class SemanticScholarProvider(ScholarlyProvider):
         headers = {"User-Agent": "scholarly-retrieval-platform/0.1"}
         if key:
             headers["x-api-key"] = key
+        self._keyed = bool(key)
+        # Surfaced in provider reports on HTTP 429 so users learn the cause
+        # instead of assuming the retry policy is broken.
+        self.throttle_hint = (
+            None
+            if key
+            else (
+                "SEMANTIC_SCHOLAR_API_KEY is not configured, so requests share the global "
+                "anonymous pool that is usually exhausted; request a free key at "
+                "https://www.semanticscholar.org/product/api"
+            )
+        )
         self._store = store
         self._client = client or httpx.AsyncClient(
             base_url="https://api.semanticscholar.org/graph/v1",
@@ -103,10 +115,12 @@ class SemanticScholarProvider(ScholarlyProvider):
                 # The documented introductory keyed limit is one request per
                 # second. Anonymous traffic shares a pool and may be throttled
                 # even below that rate, so use conservative pacing plus a real
-                # bounded exponential retry window for both modes.
+                # bounded exponential retry window. Anonymous 429s rarely clear
+                # within a request, so the anonymous window is shorter (about
+                # 6 s instead of 30 s) to keep multi-source searches responsive.
                 min_interval_seconds=1.1,
                 max_concurrency=1,
-                max_attempts=5,
+                max_attempts=5 if key else 3,
                 base_delay_seconds=2.0,
                 max_delay_seconds=30.0,
                 max_retry_after_seconds=120.0,

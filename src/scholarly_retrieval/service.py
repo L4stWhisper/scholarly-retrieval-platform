@@ -1383,15 +1383,23 @@ class ScholarService:
         except httpx.HTTPStatusError as exc:
             status = RunStatus.THROTTLED if exc.response.status_code == 429 else RunStatus.FAILED
             reliability = exc.response.extensions.get("scholarly_reliability", {})
+            message = (
+                f"provider returned HTTP {exc.response.status_code}; "
+                "request URL omitted to protect credentials"
+            )
+            # Providers may explain a throttle that no retry policy can fix,
+            # such as anonymous traffic sharing one global quota pool.
+            hint = (
+                getattr(provider, "throttle_hint", None) if status == RunStatus.THROTTLED else None
+            )
+            if hint:
+                message = f"{message}; {hint}"
             return ProviderBatch(), ProviderReport(
                 provider=provider.name,
                 operation=operation,
                 status=status,
                 error_code=f"http_{exc.response.status_code}",
-                error_message=(
-                    f"provider returned HTTP {exc.response.status_code}; "
-                    "request URL omitted to protect credentials"
-                ),
+                error_message=message,
                 context={
                     key: reliability[key]
                     for key in ("attempt_count", "retry_delays")

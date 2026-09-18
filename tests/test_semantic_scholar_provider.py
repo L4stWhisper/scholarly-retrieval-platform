@@ -289,3 +289,14 @@ def test_s2_relations_resume_from_server_supplied_next_offset() -> None:
         store.close()
 
     asyncio.run(scenario())
+
+
+def test_anonymous_semantic_scholar_explains_throttling_and_retries_less(monkeypatch) -> None:
+    monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY", raising=False)
+    anonymous = SemanticScholarProvider()
+    assert anonymous.throttle_hint and "SEMANTIC_SCHOLAR_API_KEY" in anonymous.throttle_hint
+    assert anonymous._http.policy.max_attempts == 3
+
+    keyed = SemanticScholarProvider(api_key="secret")
+    assert keyed.throttle_hint is None
+    assert keyed._http.policy.max_attempts == 5
