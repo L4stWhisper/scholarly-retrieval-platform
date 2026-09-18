@@ -7,21 +7,37 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+USER_ENV_RELATIVE_PATH = Path(".config") / "scholarly-retrieval" / ".env"
 
-def load_environment(path: str | Path | None = None) -> Path | None:
-    """Load one project .env without overriding deployment environment values.
 
-    The current working directory is intentional: CLI/API/MCP normally start
-    from a project or deployment directory. SCHOLAR_ENV_FILE provides an
-    explicit path for services launched elsewhere.
+def environment_file_candidates(path: str | Path | None = None) -> list[Path]:
+    """Search order for the optional .env file; the first existing file wins.
+
+    1. an explicit ``path`` argument or ``SCHOLAR_ENV_FILE``;
+    2. ``.env`` in the current working directory (a project checkout);
+    3. ``~/.config/scholarly-retrieval/.env`` (one user-level file shared by
+       every checkout and by Agent clients launched from other directories).
     """
 
     configured = path or os.getenv("SCHOLAR_ENV_FILE")
-    env_path = Path(configured).expanduser() if configured else Path.cwd() / ".env"
-    if not env_path.is_file():
-        return None
-    load_dotenv(dotenv_path=env_path, override=False)
-    return env_path.resolve()
+    if configured:
+        return [Path(configured).expanduser()]
+    return [Path.cwd() / ".env", Path.home() / USER_ENV_RELATIVE_PATH]
+
+
+def load_environment(path: str | Path | None = None) -> Path | None:
+    """Load at most one .env file without overriding process environment values.
+
+    Variables already present in the process environment always take
+    precedence, so shell exports, CI secrets, and container settings are never
+    overwritten by a file. The file is a convenience for local use only.
+    """
+
+    for env_path in environment_file_candidates(path):
+        if env_path.is_file():
+            load_dotenv(dotenv_path=env_path, override=False)
+            return env_path.resolve()
+    return None
 
 
 def credential_status() -> dict[str, dict[str, bool]]:
