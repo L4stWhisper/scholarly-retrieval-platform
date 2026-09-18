@@ -185,3 +185,43 @@ def test_technical_and_acceptance_docs_cover_traceability_and_storage() -> None:
         assert term in technical
     for term in ("ruff", "compileall", "pytest", "Claude Code", "C01", "C10"):
         assert term in acceptance
+
+
+def test_acceptance_matrix_references_existing_test_files() -> None:
+    """Every test file named in the automation matrix must exist (globs allowed)."""
+
+    acceptance = ENGINEERING_DOCUMENTS[1].read_text(encoding="utf-8")
+    matrix = acceptance.split("## 2.", 1)[1].split("## 3.", 1)[0]
+    referenced = set(re.findall(r"`(test_[\w*]+\.py)`", matrix))
+    assert referenced, "the automation matrix should name representative tests"
+    missing = sorted(name for name in referenced if not list((ROOT / "tests").glob(name)))
+    assert missing == []
+
+
+def test_documented_environment_variables_exist_in_code_or_template() -> None:
+    """Variables listed in the configuration guide must be real configuration inputs."""
+
+    guide = (DOCS / "configuration.md").read_text(encoding="utf-8")
+    documented = set(re.findall(r"`([A-Z][A-Z0-9_]{3,})`", guide))
+    documented -= {"PATH"}
+    template = (ROOT / ".env.example").read_text(encoding="utf-8")
+    source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "src" / "scholarly_retrieval").rglob("*.py")
+    )
+    unknown = sorted(name for name in documented if name not in template and name not in source)
+    assert unknown == []
+
+
+def test_verification_commands_are_consistent_across_docs_and_templates() -> None:
+    """README, the development guide, the PR template, CI and the acceptance doc agree on uv."""
+
+    expected = "uv run ruff check src tests tools"
+    for path in (
+        README,
+        DOCS / "development.md",
+        DOCS / "test-acceptance.md",
+        ROOT / ".github" / "pull_request_template.md",
+        ROOT / ".github" / "workflows" / "ci.yml",
+    ):
+        assert expected in path.read_text(encoding="utf-8"), path.relative_to(ROOT)
