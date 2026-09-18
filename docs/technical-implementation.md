@@ -1,7 +1,7 @@
 # 技术实现与可溯源文档
 
 本文是 Scholarly Retrieval Platform 的唯一技术说明，记录当前架构、模块、数据契约、算法、外部
-来源、可靠性、安全边界、部署方式和关键设计决策。用户操作统一放在根目录 `README.md`，测试证据
+来源、可靠性、安全边界、部署方式和关键设计决策。用户操作统一放在 `docs/` 主题指南（README 只保留简介、功能与快速开始），测试证据
 统一放在 `docs/test-acceptance.md`。
 
 基线版本：`0.1.0`；文档核对日期：2026-09-03。
@@ -26,7 +26,12 @@ SerpApi citation 使用多轮一致性召回（2026-09-16 替代固定偏移探�
 1. 每个 cites ID 独立运行，默认最多 4 轮，每轮从 start=0 开始。
 2. 只跟随 `serpapi_pagination.next`，不从 total_results 推算页数，也不自行推算下一页偏移。
    下一页必须是官方 HTTPS search.json、保持 seed/query/engine 且偏移递增；忽略 URL 中的密钥，
-   保留本地授权。每轮最多 ceil(limit/10)+2 页，防止异常分页无界消耗配额。
+   保留本地授权。每页 20 条，每轮最多 ceil(limit/20)+2 页，防止异常分页无界消耗配额。
+   每页的 `search_information.total_results` 与本次已见最大值比较：更小、或 next 链接承诺的页
+   为空，即判定为陈旧快照页，在每轮 `page_retries` 预算内重拉；所有尝试的结果都并入观察集。
+   seed 记录 `retrieval_context.cited_by_total`（Google 标注的 Cited by）经 `traversal_identifier`
+   记入 `_advertised_totals`，作为对应 cites ID 的初始总数下限（`context.advertised_total`）。
+   每轮记录 `consistent`（所有页标称同一总数且无残留陈旧页）与 `stale_retries`。
 3. 所有轮次均 `no_cache=true`，ReliableHttpClient 同时 use_cache=False；请求仍写审计记录。
 4. 同一 cites ID 内反复观察到的相同 result_id 合并为一条抓取记录，累积轮次/页偏移证据。
    不同 cites ID 的记录不提前去重，全部交给 ScholarService 的身份解析与多源去重。
@@ -34,6 +39,7 @@ SerpApi citation 使用多轮一致性召回（2026-09-16 替代固定偏移探�
    轮数/结果预算、失败、非法 next、已知缺口均返回 partial/truncated 并保留已成功的论文。
 
 `citation_rounds`（至少 2，未传入时读取 SCHOLAR_GOOGLE_CITATION_ROUNDS，默认 4）、
+`page_retries`（每轮陈旧页重拉预算，未传入时读取 SCHOLAR_GOOGLE_PAGE_RETRIES，默认 3）、
 `discovery_pages`（默认 12）可在 Provider 构造时调整；
 `limit` 对 Google 按 cites ID 应用，而不是裁剪所有列表拼接结果。
 `provider_reports[].context.cluster_outcomes` 保存每个 cites ID 的 rounds/pages/stop_reason；
@@ -222,9 +228,15 @@ work types、minimum citations、sort 和 1～100 limit。
 - `unsupported`：无法可靠执行。
 
 所有关键词查询都会把 Provider 候选窗口放大到请求 limit 的三倍，上限仍为 100；高级字段继续在
-规范层二次校验。`sort=relevance` 使用来源名次 RRF、标题/摘要/venue/field 的 IDF 词项覆盖、原短语
-命中和多源一致性做确定性软融合。融合不按缺词硬删除候选，以避免用 precision 换掉 recall；但有界
-Top-N 仍不保证全库 recall。arXiv 将多词文本编译成顺序无关的 AND 词项，而不是要求整句精确短语。
+规范层二次校验。`sort=relevance` 使用来源名次 RRF、标题/摘要/venue/field 的词项覆盖、原短语
+命中和多源一致性做确定性软融合。词项匹配前做轻量词干归一（`harnesses`→`harness`、
+`queries`→`query`、`retrieved`→`retriev`），否则查询里 IDF 最高的词会因为单复数而丢失。
+词项权重取候选集合内 IDF 的平方，让稀有的主题词主导排序：只命中通用词（如
+natural、language、agent）的记录不能压过命中判别词（如 harness）的记录。
+融合不按缺词硬删除候选，以避免用 precision 换掉 recall；但有界 Top-N 仍不保证全库 recall。
+未显式指定 `work_types` 时，`component`（Crossref 补充材料 DOI，如 `.s001`）、`peer-review` 与
+`grant` 类型的登记记录会从关键词结果中排除，它们不是论文，只会重复或稀释结果。
+arXiv 将多词文本编译成顺序无关的 AND 词项，而不是要求整句精确短语。
 
 ### 5.2 Resolve
 
@@ -289,6 +301,10 @@ Top-K、per-node limit、年份/类型候选过滤和运行时间预算。
 ## 6. 身份合并与去重
 
 自动 must-link 的强标识是 DOI、arXiv、PMID 和 PMCID。相同 Provider record ID 也可 exact-link。
+强标识在参与比较前先归一为 key，claim 本身保留原值：DataCite 的 arXiv DOI
+（`10.48550/arxiv.<id>`）等价于 arXiv ID；arXiv 版本号（`v2`）去掉后是同一篇论文；预印本服务器的
+版本后缀 DOI（Preprints.org `.v2`、Research Square `/v1`）归为同一 DOI 家族，因此 v1/v2/v3 合并且
+不构成 DOI 冲突。其他仅题名相似、DOI 不同的记录仍是 cannot-link。
 
 规则顺序：
 
@@ -370,7 +386,9 @@ artifact 获取模块，并实现 URL/重定向/SSRF、大小、类型、哈希�
 
 - 只对无副作用查询进行缓存/重放；GET 和明确的只读 JSON POST 分开；
 - 默认最多 3 次，重试 429、500、502、503、504 和 transport errors；
-- Semantic Scholar 专用策略最多 5 次、约 2/4/8/16 秒指数退避并限制为 1 个并发、至少间隔 1.1 秒；
+- Semantic Scholar 专用策略：配置 key 时最多 5 次、约 2/4/8/16 秒指数退避，限制为 1 个并发、
+  至少间隔 1.1 秒；未配置 key 时匿名流量共享全球配额，429 很少在一次请求内恢复，因此只重试 3 次
+  （约 6 秒），并在 Provider report 的 `error_message` 里附带 `throttle_hint` 说明原因与申请地址；
 - 优先解析 `Retry-After`，其独立安全上限为 120 秒，不再被指数退避的 10/30 秒上限错误截短；
 - 最终 HTTP 响应把 `attempt_count` 和实际 `retry_delays` 写入 Provider report context，未启用 SQLite 时
   也能判断退避是否真的执行；
@@ -519,6 +537,9 @@ smoke 只证明功能路径，不估计无 DOI、扫描 PDF 或跨领域准确�
 | ADR-0020 | 2026-09-02 | Redis 共享 quota/job/cancel，不冒充共享长期 evidence store |
 | ADR-0021 | 2026-09-02 | v0.1 发布核心是四种检索、多源证据和 Agent 工具封装 |
 | ADR-0022 | 2026-09-03 | 用户文档收敛为 README、技术实现、测试验收三份主文档 |
+| ADR-0023 | 2026-09-18 | README 只保留简介、功能、快速开始与导航；使用说明拆分为 `docs/` 主题指南（取代 ADR-0022 的单一 README 手册）；uv 管理环境；Conventional Commits |
+| ADR-0024 | 2026-09-18 | Google Scholar 被引分页按标称总数共识识别陈旧快照页并重拉；seed 标称 Cited by 作为下限 |
+| ADR-0025 | 2026-09-18 | 强标识 key 归一：arXiv DOI 等价 arXiv ID、版本后缀 DOI 同族；检索词干归一与 IDF 平方权重；排除非论文登记类型 |
 
 当以下条件发生时复查相关决策：Provider API/许可变化；强身份规则在跨领域 gold 上系统性失败；
 SQLite 写并发成为瓶颈；需要共享长期证据；MCP SDK 大版本迁移；引入 PDF 获取；新的排序模型完成
@@ -528,8 +549,8 @@ SQLite 写并发成为瓶颈；需要共享长期证据；MCP SDK 大版本迁�
 
 | 类别 | 变量 |
 |---|---|
-| 环境文件 | `SCHOLAR_ENV_FILE` |
-| Provider | `OPENALEX_API_KEY`、`OPENALEX_MAILTO`、`SEMANTIC_SCHOLAR_API_KEY`、`SERPAPI_API_KEY`、`CROSSREF_MAILTO`、`ARXIV_MAILTO`、`EUROPE_PMC_EMAIL`、`OPENCITATIONS_ACCESS_TOKEN`、`OPENCITATIONS_MAX_RELATIONS` |
+| 环境文件 | `SCHOLAR_ENV_FILE`；查找顺序为显式路径、`./.env`、`~/.config/scholarly-retrieval/.env`，进程环境变量永远优先 |
+| Provider | `OPENALEX_API_KEY`、`OPENALEX_MAILTO`、`SEMANTIC_SCHOLAR_API_KEY`、`SERPAPI_API_KEY`、`SCHOLAR_GOOGLE_CITATION_ROUNDS`、`SCHOLAR_GOOGLE_PAGE_RETRIES`、`ADS_API_TOKEN`、`CROSSREF_MAILTO`、`ARXIV_MAILTO`、`EUROPE_PMC_EMAIL`、`OPENCITATIONS_ACCESS_TOKEN`、`OPENCITATIONS_MAX_RELATIONS` |
 | 存储/匹配 | `SCHOLAR_DB_PATH`、`SCHOLAR_REFERENCE_AUTO_MATCH_THRESHOLD`、`SCHOLAR_REFERENCE_MINIMUM_MARGIN` |
 | HTTP API | `SCHOLAR_API_HOST`、`SCHOLAR_API_PORT`、`SCHOLAR_API_KEYS`、`SCHOLAR_RATE_LIMIT_PER_MINUTE`、`SCHOLAR_API_MAX_REQUEST_BODY_BYTES` |
 | MCP | `SCHOLAR_MCP_TRANSPORT`、`SCHOLAR_MCP_HOST`、`SCHOLAR_MCP_PORT`、`SCHOLAR_MCP_API_KEYS`、`SCHOLAR_MCP_RATE_LIMIT_PER_MINUTE`、`SCHOLAR_MCP_MAX_REQUEST_BODY_BYTES`、`SCHOLAR_MCP_ISSUER_URL`、`SCHOLAR_MCP_RESOURCE_URL` |
@@ -549,7 +570,7 @@ SQLite 写并发成为瓶颈；需要共享长期证据；MCP SDK 大版本迁�
 4. 不支持的操作声明 none/count，不能伪造空 list 能力；
 5. 在 Registry 注册，不改 `ScholarService`；
 6. 覆盖正常、空、404、限流/传输、payload drift、分页/截断、身份和真实低负载 smoke；
-7. 更新 README 矩阵、本技术文档和测试验收文档。
+7. 更新 `docs/providers.md` 来源能力表、本技术文档和测试验收文档。
 
 新增接口字段或算法必须先定义中立模型和 Library 行为，再更新 CLI/API/MCP 契约测试。涉及实体合并、
 排序阈值或引用验证的变化必须提供版本化 gold 或明确说明只有功能 smoke。

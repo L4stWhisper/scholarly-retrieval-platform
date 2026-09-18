@@ -4,6 +4,72 @@
 
 ## 1. 验收原则
 
+### 关键词检索精度、Semantic Scholar 429 与配置查找顺序（2026-09-18）
+
+- Semantic Scholar 持续 429 的根因：`.env` 中 `SEMANTIC_SCHOLAR_API_KEY` 为空，匿名流量共享全球
+  配额池。直接探测 `GET /graph/v1/paper/arXiv:2603.25723` 六次全部 429 且无 `Retry-After`。
+  项目的指数退避本身有效（5 次、2/4/8/16 秒并遵守 Retry-After），但退避无法换来配额。
+  处理：匿名模式改为 3 次重试并在 `error_message` 附带 `throttle_hint`；配置 key 后仍为 5 次。
+- 关键词检索 `natural language agent harness`（openalex,crossref,arxiv,europe_pmc，limit 10）
+  修复前：前 10 条中 5 条是重复（Preprints.org `.v1/.v2/.v3` 三条、arXiv 与 OpenAlex 的同一篇
+  两条），另有 3 条只匹配通用词的无关老论文与 2 条 Crossref `component` 补充材料记录。
+  修复后（强标识 key 归一、词干归一、IDF 平方、排除非论文类型）：limit 12 中 11 条切题，
+  重复全部合并；`dense retrieval open-domain question answering` 12 条全部切题，
+  `retrieval augmented generation hallucination` 10 条全部切题。均为真实 CLI 结果，未使用 mock。
+- 配置：`load_environment` 查找顺序改为显式路径、`./.env`、`~/.config/scholarly-retrieval/.env`，
+  进程环境变量始终优先；`scholar doctor` 显示实际加载的文件。
+- 离线回归：`test_identity` 新增 3 项、`test_service` 新增 3 项、`test_config` 新增 2 项、
+  `test_semantic_scholar_provider` 新增 1 项；文档契约测试改为 README 入口 + `docs/` 指南。
+
+### Google 陈旧快照页校验与 seed 标称总数下限（2026-09-18）
+
+参考 zjsxply.github.io 在 2026-09-10 与 09-14 的三次提交（`bin/update_scholar_citations_serpapi.py`）。
+对方做法：每个 cites ID 单独抓取、num=20、filter=0、只跟随 next 并保留 start/as_sdt/sciodt/scipsc/filter；
+整体结果少于上次缓存计数时用 no_cache 重跑一遍取较多者；最后经验性写死 `as_sdt=0,27`
+（注释称 as_sdt=0/省略/0,26 得 27–28 条，0,27 连续三次得 51 条）。
+
+本项目不经过项目代码、直接向 SerpApi 探测（本机无 HTTP(S)_PROXY，请求只到 serpapi.com）。
+主 ID `5554083676653175677`，num=20、filter=0、no_cache=true，各页记为 (start, 返回, 标称)：
+
+| as_sdt | 唯一 result ID | 各页 |
+| --- | ---: | --- |
+| 0 | 34 | (0,20,21) (20,20,47) (40,7,47) |
+| 0,27 | 38 | (0,20,28) (20,20,47) (40,7,47) |
+| 省略 | 47 | (0,20,47) (20,20,47) (40,7,47) |
+| 省略，第 2 次 | 47 | 全部标称 47 |
+| 0,27，第 2 次 | 47 | 全部标称 47 |
+| 省略，第 3 次 | 33 | (0,20,47) (20,13,33) |
+| 0,27，第 3 次 | 20 | (0,20,47) (20, 无结果错误) |
+| 省略，num=10 | 20 | (0,10,23) (10,10,20) |
+
+第二 ID `10581113726319067053` 单页各请求四次，(返回, 标称)：
+省略 2/4/4/6；0,27 4/5/6/6；0,5 5/6/5/错误；2005 四次全部错误。
+
+结论：同一 cites 列表由互不一致的索引快照响应，页面标称总数在 20–47（或 2–6）之间跳动；
+小快照页与大快照页重叠，按 result_id 合并后偏少。`as_sdt=0,27` 不是确定性修复（第 3 次仅 20 条），
+也不采用。三个候选原因中：上游后端快照不一致是主因；代理可排除；项目代码原本没有识别陈旧页的机制。
+
+修复（provider `_citation_pages`）：每页 20 条；每页标称总数与本次已见最大值比较，更小、或 next
+承诺的页为空即判定陈旧页，在每轮 `SCHOLAR_GOOGLE_PAGE_RETRIES`（默认 3）预算内立即重拉；
+所有尝试的结果都并入观察集；seed 记录的 `cited_by.total` 经 `traversal_identifier` 记为该 cites ID 的
+总数下限，列表始终达不到下限时保持 partial。停止规则不变：连续两轮相同 ID 集合且无总数缺口。
+
+真实 CLI（页级重拉已加入、标称下限加入前）：
+`citations google_scholar:5554083676653175677,10581113726319067053 --source google_scholar_serpapi --limit 100 --format json`
+
+- 主 ID：两轮各 47 个不同 ID，两轮均 consistent；陈旧页重拉分别触发 1 次（start=40 空页）和 3 次
+  （start=20 标称 33），stop_reason=stable，complete。此前记录的最好结果为 46。
+- 第二 ID：两轮各 2 条且标称 2，stable。这暴露了"本次运行从未见到 6"时无法察觉缺口，
+  因此补充 seed 标称下限。整体 status complete，49 篇。
+
+加入标称下限后的真实 CLI 未能执行：SerpApi 免费额度（250 次/月）在本次探测后用尽，返回 http_429。
+第二 ID 的下限逻辑仅由离线测试与上面的直接探测（6 出现在约 1/4–2/4 的新鲜请求中）支持，
+尚无端到端实测；额度恢复后应重跑上述命令核验第二 ID 是否达到 6。
+
+离线回归：新增 `tests/test_scholar_snapshot_consistency.py` 7 项（陈旧首页重拉、next 承诺空页重拉、
+预算耗尽保留数据并 partial、page_retries=0、环境变量、标称下限触发重拉、标称下限未达保持 partial）；
+更新 `test_citation_sources.py` 的偏移断言。全量 272 passed、33 skipped；Ruff check 通过。
+
 ### 官方分页对照与原始 HTML 定位（2026-09-16）
 
 目的：区分“本地参数/解析丢失”和“SerpApi 返回时已经缺失”。使用
@@ -300,7 +366,7 @@ Claude Code 最终证据摘要：
 
 初步版本可以发布需同时满足：
 
-- 离线自动化测试无失败，三份主文档链接有效；
+- 离线自动化测试无失败，README、`docs/` 指南与技术/验收文档的本地链接有效；
 - 四种检索、resolve、图扩展、Reference extraction/linking 均有契约测试；
 - 至少一个无 key 的真实来源完成 keyword、advanced、references、citations、related smoke；
 - Claude Code 能发现 MCP 并完成 C01-C10，或将确属上游限流的单项明确记录为 `PARTIAL`；
