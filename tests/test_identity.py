@@ -215,3 +215,60 @@ def test_version_of_event_groups_family_without_merging_manifestations() -> None
     assert {item.work_family_id for item in resolution.papers} == {
         resolution.papers[0].work_family_id
     }
+
+
+def test_arxiv_record_merges_with_datacite_arxiv_doi_record() -> None:
+    resolution = resolve_identities(
+        [
+            paper(
+                "arxiv",
+                "2603.25723v2",
+                None,
+                "Natural-Language Agent Harnesses",
+                arxiv="2603.25723v2",
+            ),
+            paper(
+                "openalex", "W1", "10.48550/arXiv.2603.25723", "Natural-Language Agent Harnesses"
+            ),
+        ]
+    )
+    assert len(resolution.papers) == 1
+    assert {source.provider for source in resolution.papers[0].source_records} == {
+        "arxiv",
+        "openalex",
+    }
+    assert [d.decision for d in resolution.decisions] == [IdentityDecisionKind.MUST_LINK]
+
+
+def test_versioned_preprint_dois_form_one_work_without_conflict() -> None:
+    resolution = resolve_identities(
+        [
+            paper("crossref", "v1", "10.20944/preprints202604.0428.v1", "Agent Harness: A Survey"),
+            paper("crossref", "v2", "10.20944/preprints202604.0428.v2", "Agent Harness: A Survey"),
+            paper(
+                "crossref", "rs", "10.21203/rs.3.rs-123456/v1", "An unrelated Research Square work"
+            ),
+            paper(
+                "crossref", "rs2", "10.21203/rs.3.rs-123456/v2", "An unrelated Research Square work"
+            ),
+        ]
+    )
+    assert len(resolution.papers) == 2
+    merged = next(p for p in resolution.papers if p.title.startswith("Agent Harness"))
+    assert {claim.value for claim in merged.identifiers} == {
+        "10.20944/preprints202604.0428.v1",
+        "10.20944/preprints202604.0428.v2",
+    }
+    assert all(d.decision == IdentityDecisionKind.MUST_LINK for d in resolution.decisions)
+
+
+def test_distinct_dois_with_similar_titles_still_cannot_link() -> None:
+    # A version suffix is the only DOI difference that is treated as one work.
+    resolution = resolve_identities(
+        [
+            paper("crossref", "a", "10.1000/paper.1", "Same Title"),
+            paper("crossref", "b", "10.1000/paper.2", "Same Title"),
+        ]
+    )
+    assert len(resolution.papers) == 2
+    assert resolution.decisions[0].decision == IdentityDecisionKind.CANNOT_LINK

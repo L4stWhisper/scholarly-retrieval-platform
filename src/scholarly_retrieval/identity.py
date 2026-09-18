@@ -17,7 +17,7 @@ from .models import (
     IdentityResolution,
     Paper,
 )
-from .normalization import normalize_text
+from .normalization import normalize_arxiv_id, normalize_text
 
 STRONG_SCHEMES = {
     IdentifierScheme.DOI,
@@ -31,10 +31,38 @@ REVIEW_THRESHOLD = 0.82
 # automatic merges until a cross-domain gold set calibrates them.
 
 
+# Trailing version markers used by preprint servers (Preprints.org `.v2`,
+# Research Square `/v1`). Versions of one preprint are manifestations of one
+# work, so they must neither stay apart nor count as a DOI conflict.
+DOI_VERSION_SUFFIX = re.compile(r"[./]v\d+$")
+ARXIV_DOI_PREFIX = "10.48550/arxiv."
+
+
 def strong_identity_keys(paper: Paper) -> set[tuple[IdentifierScheme, str]]:
-    return {
-        (claim.scheme, claim.value) for claim in paper.identifiers if claim.scheme in STRONG_SCHEMES
-    }
+    """Strong keys used for must-link and conflict checks.
+
+    Claims keep their original values; only the keys are normalized:
+    the DataCite arXiv DOI is the same work as its arXiv ID, arXiv versions
+    share one paper ID, and versioned preprint DOIs share one DOI family.
+    """
+
+    keys: set[tuple[IdentifierScheme, str]] = set()
+    for claim in paper.identifiers:
+        if claim.scheme not in STRONG_SCHEMES:
+            continue
+        value = claim.value
+        if claim.scheme == IdentifierScheme.DOI:
+            lowered = value.lower()
+            if lowered.startswith(ARXIV_DOI_PREFIX):
+                arxiv = normalize_arxiv_id(lowered[len(ARXIV_DOI_PREFIX) :], keep_version=False)
+                if arxiv:
+                    keys.add((IdentifierScheme.ARXIV, arxiv))
+                    continue
+            value = DOI_VERSION_SUFFIX.sub("", lowered)
+        elif claim.scheme == IdentifierScheme.ARXIV:
+            value = normalize_arxiv_id(value, keep_version=False) or value
+        keys.add((claim.scheme, value))
+    return keys
 
 
 def resolve_identities(
