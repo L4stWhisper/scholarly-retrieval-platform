@@ -4,6 +4,26 @@
 
 ## 1. 验收原则
 
+### 关键词检索优化的跨领域对照（2026-09-19）
+
+用户要求优化不能只对一篇论文生效。用 `git worktree` 检出优化前提交 f0188c9，与当前代码对同一组
+查询各跑一次（默认五个来源、limit 10、同一时段），逐条人工判断切题性：
+
+| 查询 | 领域 | 优化前 | 优化后 | 变化 |
+|---|---|---:|---:|---|
+| graph neural network molecular property prediction | 化学/ML | 10/10 切题 | 10/10 | 排名一致 |
+| CRISPR base editing off-target effects | 生物医学 | 10/10 | 10/10 | 第 8 条 Crossref 与 Europe PMC 记录合并为一篇 |
+| surface code quantum error correction threshold | 物理 | 10/10 | 10/10 | 排名一致 |
+| large language model agents tool use | CS | 10/10 | 10/10 | 排名一致 |
+| climate change impact on crop yields | 农业/气候 | 10/10 | 10/10 | 排名一致 |
+| deep learning medical image segmentation | 医学影像 | 8/10：第 2、3 位是撤稿声明与被撤稿论文 | 10/10 | 撤稿声明排除、被撤稿论文降权 |
+| natural language agent harness（前次记录） | CS | 5 重复 + 5 无关 | 11/12 切题 | 去重与主题词权重 |
+
+结论：词干归一、IDF 平方与强标识归一在判别词充足的查询上不改变排名（无回归），在含通用词或版本
+重复的查询上显著改善。对照过程新发现撤稿相关记录混入前列属于全局问题，随即补充规则：
+勘误、撤稿声明等登记类型默认排除；被撤稿论文保留但相关性分数减半；显式 `--work-type` 时不排除。
+`test_service` 新增对应契约测试。上述均为真实公网结果，来源排名会随索引变化。
+
 ### Semantic Scholar 无 key 访问（2026-09-19）
 
 用户复测确认：退避机制正确执行（时间戳核对三次请求间隔约 2.3 秒与 4.1 秒）但匿名池始终 429，

@@ -90,9 +90,29 @@ REFERENCE_LINK_CONCURRENCY = 4
 SEARCH_RRF_K = 60
 # Registry record types that are not scholarly works. Crossref indexes
 # supplementary files ("component", e.g. 10.1021/x.s001), peer-review reports
-# and grants under their own DOIs; they only duplicate or dilute keyword
-# results unless a caller asks for such types explicitly.
-SEARCH_EXCLUDED_WORK_TYPES = frozenset({"component", "peer-review", "grant"})
+# and grants under their own DOIs; OpenAlex and Europe PMC index retraction
+# notices and errata as separate records. They only duplicate or dilute
+# keyword results unless a caller asks for such types explicitly.
+SEARCH_EXCLUDED_WORK_TYPES = frozenset(
+    {
+        "component",
+        "peer-review",
+        "grant",
+        "supplementary-materials",
+        "paratext",
+        "erratum",
+        "published erratum",
+        "correction",
+        "retraction",
+        "retraction of publication",
+    }
+)
+# Retracted papers stay visible (a reader may need them) but must not be
+# ranked as if they were current findings. Europe PMC types them explicitly;
+# publishers prefix the title.
+RETRACTED_WORK_TYPES = frozenset({"retracted publication", "retracted-article"})
+RETRACTED_TITLE_PATTERN = re.compile(r"^\W*retracted\b", re.IGNORECASE)
+SEARCH_RETRACTED_PENALTY = 0.5
 # (suffix, replacement, minimum stem length); first match wins.
 SEARCH_STEM_RULES = (
     ("ies", "y", 3),
@@ -1806,9 +1826,16 @@ class ScholarService:
                 + 10.0 * rrf
                 + 0.05 * min(len(ranks_by_provider), 3)
             )
+            if ScholarService._is_retracted(paper):
+                fused *= SEARCH_RETRACTED_PENALTY
             return fused, -best_rank, paper.record_id
 
         return sorted(papers, key=score, reverse=True)
+
+    @staticmethod
+    def _is_retracted(paper: Paper) -> bool:
+        work_type = " ".join(paper.work_type.split()).casefold() if paper.work_type else ""
+        return work_type in RETRACTED_WORK_TYPES or bool(RETRACTED_TITLE_PATTERN.match(paper.title))
 
     @staticmethod
     def _search_tokens(value: str) -> set[str]:

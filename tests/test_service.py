@@ -941,6 +941,64 @@ def test_search_tokens_use_light_stemming_for_plurals_and_inflections() -> None:
     assert ScholarService._stem("bert") == "bert"
 
 
+def test_keyword_search_drops_notices_and_demotes_retracted_papers() -> None:
+    async def scenario() -> None:
+        class TypedProvider(FakeProvider):
+            name = "typed"
+
+            async def search(self, query: SearchQuery) -> ProviderBatch:
+                rows = [
+                    ("Deep learning medical image segmentation", "Retraction of Publication"),
+                    (
+                        "Retracted: Deep learning medical image segmentation",
+                        "Retracted Publication",
+                    ),
+                    ("Deep learning medical image segmentation review", "journal-article"),
+                    ("Erratum: deep learning medical image segmentation", "erratum"),
+                    ("Deep learning for medical image segmentation", "research-article"),
+                ]
+                return ProviderBatch(
+                    papers=[
+                        Paper(
+                            record_id=f"typed:{index}",
+                            title=title,
+                            work_type=work_type,
+                            source_records=[
+                                SourceRecord(
+                                    provider="typed",
+                                    source_record_id=str(index),
+                                    provider_rank=index,
+                                )
+                            ],
+                        )
+                        for index, (title, work_type) in enumerate(rows, start=1)
+                    ]
+                )
+
+        service = ScholarService([TypedProvider()])
+        result = await service.search(
+            SearchQuery(text="deep learning medical image segmentation", limit=10)
+        )
+        titles = [paper.title for paper in result.papers]
+        assert "Deep learning medical image segmentation" not in titles  # retraction notice
+        assert not any(title.startswith("Erratum") for title in titles)
+        assert titles[-1] == "Retracted: Deep learning medical image segmentation"
+        assert len(titles) == 3
+
+        explicit = await service.search(
+            SearchQuery(
+                text="deep learning medical image segmentation",
+                work_types=["retraction of publication"],
+                limit=10,
+            )
+        )
+        assert [paper.title for paper in explicit.papers] == [
+            "Deep learning medical image segmentation"
+        ]
+
+    asyncio.run(scenario())
+
+
 def test_keyword_search_ranks_inflected_title_match_above_partial_matches() -> None:
     async def scenario() -> None:
         provider = RankedKeywordProvider(

@@ -234,8 +234,11 @@ work types、minimum citations、sort 和 1～100 limit。
 词项权重取候选集合内 IDF 的平方，让稀有的主题词主导排序：只命中通用词（如
 natural、language、agent）的记录不能压过命中判别词（如 harness）的记录。
 融合不按缺词硬删除候选，以避免用 precision 换掉 recall；但有界 Top-N 仍不保证全库 recall。
-未显式指定 `work_types` 时，`component`（Crossref 补充材料 DOI，如 `.s001`）、`peer-review` 与
-`grant` 类型的登记记录会从关键词结果中排除，它们不是论文，只会重复或稀释结果。
+未显式指定 `work_types` 时，`component`（Crossref 补充材料 DOI，如 `.s001`）、`peer-review`、
+`grant`、`supplementary-materials`、`paratext`、勘误（`erratum`、`published erratum`、`correction`）
+与撤稿声明（`retraction`、`retraction of publication`）类型的登记记录会从关键词结果中排除，
+它们不是论文，只会重复或稀释结果。被撤稿的论文（Europe PMC `Retracted Publication` 或题名以
+"Retracted" 开头）保留在结果中但相关性分数减半，避免被当作现行结论排在前列。
 arXiv 将多词文本编译成顺序无关的 AND 词项，而不是要求整句精确短语。
 
 ### 5.2 Resolve
