@@ -277,3 +277,33 @@ def test_circuit_opens_after_repeated_retryable_failures() -> None:
         await client.aclose()
 
     asyncio.run(scenario())
+
+
+def test_circuit_is_tracked_per_path_so_a_fallback_endpoint_stays_available() -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/works":
+                return httpx.Response(429, request=request)
+            return httpx.Response(200, json={"ok": True}, request=request)
+
+        client = httpx.AsyncClient(
+            base_url="https://example.test", transport=httpx.MockTransport(handler)
+        )
+        reliable = ReliableHttpClient(
+            client,
+            provider="fixture",
+            policy=RetryPolicy(
+                max_attempts=1,
+                circuit_failure_threshold=2,
+                circuit_cooldown_seconds=60,
+            ),
+        )
+        assert (await reliable.get("/works")).status_code == 429
+        assert (await reliable.get("/works")).status_code == 429
+        with pytest.raises(CircuitOpenError, match="path /works"):
+            await reliable.get("/works")
+        # The throttled path must not block a different endpoint of the same provider.
+        assert (await reliable.get("/works/bulk")).status_code == 200
+        await client.aclose()
+
+    asyncio.run(scenario())

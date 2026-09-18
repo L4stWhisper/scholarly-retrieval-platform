@@ -389,6 +389,10 @@ artifact 获取模块，并实现 URL/重定向/SSRF、大小、类型、哈希�
 - Semantic Scholar 专用策略：配置 key 时最多 5 次、约 2/4/8/16 秒指数退避，限制为 1 个并发、
   至少间隔 1.1 秒；未配置 key 时匿名流量共享全球配额，429 很少在一次请求内恢复，因此只重试 3 次
   （约 6 秒），并在 Provider report 的 `error_message` 里附带 `throttle_hint` 说明原因与申请地址；
+- Semantic Scholar 匿名限流按端点划分：无 key 时 search 直接走 `/paper/search/bulk`
+  （`sort=citationCount:desc`，本地截取 limit），resolve 走 `POST /paper/batch`；有 key 时先用
+  相关性端点，429 后回退到同样的端点并记录 `context.fallback_reason`；
+- 熔断器按 provider 内的请求路径独立计数与冷却，一个端点被限流不会阻断回退端点；
 - 优先解析 `Retry-After`，其独立安全上限为 120 秒，不再被指数退避的 10/30 秒上限错误截短；
 - 最终 HTTP 响应把 `attempt_count` 和实际 `retry_delays` 写入 Provider report context，未启用 SQLite 时
   也能判断退避是否真的执行；
@@ -540,6 +544,7 @@ smoke 只证明功能路径，不估计无 DOI、扫描 PDF 或跨领域准确�
 | ADR-0023 | 2026-09-18 | README 只保留简介、功能、快速开始与导航；使用说明拆分为 `docs/` 主题指南（取代 ADR-0022 的单一 README 手册）；uv 管理环境；Conventional Commits |
 | ADR-0024 | 2026-09-18 | Google Scholar 被引分页按标称总数共识识别陈旧快照页并重拉；seed 标称 Cited by 作为下限 |
 | ADR-0025 | 2026-09-18 | 强标识 key 归一：arXiv DOI 等价 arXiv ID、版本后缀 DOI 同族；检索词干归一与 IDF 平方权重；排除非论文登记类型 |
+| ADR-0026 | 2026-09-19 | Semantic Scholar 无 key 走 bulk search / batch lookup，有 key 429 后回退；熔断器按端点路径计数 |
 
 当以下条件发生时复查相关决策：Provider API/许可变化；强身份规则在跨领域 gold 上系统性失败；
 SQLite 写并发成为瓶颈；需要共享长期证据；MCP SDK 大版本迁移；引入 PDF 获取；新的排序模型完成
@@ -581,7 +586,7 @@ SQLite 写并发成为瓶颈；需要共享长期证据；MCP SDK 大版本迁�
 - 本地过滤只作用于有界上游 Top-N，可能漏掉库中符合条件但未进入候选池的结果；
 - ACL 关键词搜索不是官方全库索引；
 - OpenReview 可能对部分网络触发 challenge verification；不得绕过；
-- Semantic Scholar 无 key 时共享匿名配额，即使指数退避也可能持续 429；生产稳定性仍依赖申请 key；
+- Semantic Scholar 无 key 时通过 bulk/batch 端点工作，但这些端点同样共享匿名配额且 bulk 无相关性排序；生产稳定性仍依赖申请 key；
 - OCR runtime 已定义但需本机 Docker/Podman engine 才能真实验收；
 - Reference linking 阈值尚缺可再分发的跨领域人工 gold 校准；
 - SQLite 不是持续增长、多 Agent 共享的规范论文仓库；

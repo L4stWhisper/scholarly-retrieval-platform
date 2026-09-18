@@ -95,9 +95,9 @@ class SemanticScholarProvider(ScholarlyProvider):
             None
             if key
             else (
-                "SEMANTIC_SCHOLAR_API_KEY is not configured, so requests share the global "
-                "anonymous pool that is usually exhausted; request a free key at "
-                "https://www.semanticscholar.org/product/api"
+                "SEMANTIC_SCHOLAR_API_KEY is not configured; anonymous traffic shares one "
+                "global pool per endpoint, so even the bulk-search/batch fallbacks can be "
+                "throttled; request a free key at https://www.semanticscholar.org/product/api"
             )
         )
         self._store = store
@@ -140,17 +140,47 @@ class SemanticScholarProvider(ScholarlyProvider):
         return response.json()
 
     async def search(self, query: SearchQuery) -> ProviderBatch:
-        params = {"query": query.text, "limit": str(query.limit), "fields": PAPER_FIELDS}
+        """Relevance search when keyed; bulk search anonymously or after a 429.
+
+        Semantic Scholar throttles anonymous traffic per endpoint. The shared
+        pool for ``/paper/search`` and ``/paper/{id}`` is normally exhausted,
+        while ``/paper/search/bulk`` and ``/paper/batch`` usually answer. Bulk
+        search has no relevance ranking, so results are requested sorted by
+        citation count and the service's lexical fusion supplies relevance.
+        """
+
+        params = {"query": query.text, "fields": PAPER_FIELDS}
         if query.year_from or query.year_to:
             start = query.year_from or ""
             end = query.year_to or ""
             params["year"] = f"{start}-{end}"
-        if query.open_access is not None:
-            params["openAccessPdf"] = str(query.open_access).lower()
-        payload = await self._get("/paper/search", params, operation="search")
+        context: dict[str, Any] = {"endpoint": "paper/search", "ranking": "relevance"}
+        payload: dict[str, Any] | None = None
+        if self._keyed:
+            keyed_params = {**params, "limit": str(query.limit)}
+            if query.open_access is not None:
+                keyed_params["openAccessPdf"] = str(query.open_access).lower()
+            try:
+                payload = await self._get("/paper/search", keyed_params, operation="search")
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 429:
+                    raise
+                context["fallback_reason"] = "http_429"
+        bulk = payload is None
+        if bulk:
+            bulk_params = {**params, "sort": "citationCount:desc"}
+            # Bulk search only offers a presence flag for open access.
+            if query.open_access:
+                bulk_params["openAccessPdf"] = ""
+            payload = await self._get("/paper/search/bulk", bulk_params, operation="search")
+            context.update({"endpoint": "paper/search/bulk", "ranking": "citation_count_desc"})
+        items = list(payload.get("data", []))
+        if bulk:
+            # The bulk endpoint ignores ``limit`` and returns up to 1000 rows.
+            items = items[: query.limit]
         papers = [
-            self._paper_from_data(item, rank=index + 1)
-            for index, item in enumerate(payload.get("data", []))
+            self._paper_from_data(item, rank=index + 1, retrieval_context=dict(context))
+            for index, item in enumerate(items)
         ]
         execution = {"text": "provider"}
         if query.year_from is not None:
@@ -158,7 +188,11 @@ class SemanticScholarProvider(ScholarlyProvider):
         if query.year_to is not None:
             execution["year_to"] = "provider"
         if query.open_access is not None:
-            execution["open_access"] = "provider"
+            if bulk and query.open_access is False:
+                papers = [paper for paper in papers if paper.open_access is False]
+                execution["open_access"] = "local"
+            else:
+                execution["open_access"] = "provider"
         if query.author:
             wanted = normalize_text(query.author).casefold()
             papers = [
@@ -168,27 +202,48 @@ class SemanticScholarProvider(ScholarlyProvider):
             ]
             execution["author"] = "local"
         total = payload.get("total")
+        continuation = payload.get("token") if bulk else payload.get("next")
         return ProviderBatch(
             papers=papers,
             total_available=total,
             truncated=bool(total is not None and total > query.limit),
-            next_cursor=str(payload["next"]) if payload.get("next") is not None else None,
+            next_cursor=str(continuation) if continuation is not None else None,
             filter_execution=execution,
+            context=context,
         )
 
     async def resolve(self, identifier: str) -> Paper | None:
+        """Single-paper lookup when keyed; batch lookup anonymously or after a 429."""
+
         paper_id = self._paper_identifier(identifier)
-        try:
-            payload = await self._get(
-                f"/paper/{quote(paper_id, safe='')}",
-                {"fields": PAPER_FIELDS},
-                operation="resolve",
-            )
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                return None
-            raise
-        return self._paper_from_data(payload)
+        context: dict[str, Any] = {"endpoint": "paper/batch"}
+        if self._keyed:
+            try:
+                payload = await self._get(
+                    f"/paper/{quote(paper_id, safe='')}",
+                    {"fields": PAPER_FIELDS},
+                    operation="resolve",
+                )
+                return self._paper_from_data(payload, retrieval_context={"endpoint": "paper"})
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    return None
+                if exc.response.status_code != 429:
+                    raise
+                context["fallback_reason"] = "http_429"
+        response = await self._http.post_json(
+            "/paper/batch",
+            params={"fields": PAPER_FIELDS},
+            json_body={"ids": [paper_id]},
+            operation="resolve",
+        )
+        response.raise_for_status()
+        items = response.json()
+        # Unknown identifiers come back as null entries, not as HTTP 404.
+        item = items[0] if isinstance(items, list) and items else None
+        if not isinstance(item, dict) or not item.get("paperId"):
+            return None
+        return self._paper_from_data(item, retrieval_context=context)
 
     async def related(self, query: RelatedQuery) -> ProviderBatch:
         if not query.positive_identifiers:

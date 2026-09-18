@@ -4,6 +4,21 @@
 
 ## 1. 验收原则
 
+### Semantic Scholar 无 key 访问（2026-09-19）
+
+用户复测确认：退避机制正确执行（时间戳核对三次请求间隔约 2.3 秒与 4.1 秒）但匿名池始终 429，
+"有机制没解决问题"。随后按端点探测发现匿名限流按端点划分：`/paper/search` 与 `/paper/{id}` 六次
+全部 429；`/paper/search/bulk`、`POST /paper/batch`、`/paper/{id}/citations|references` 与
+Recommendations 均 200，交替快速请求 10 次中 bulk 出现 2 次 429、batch 0 次，重试可覆盖。
+
+处理：无 key 时 search 走 bulk（引用数降序、本地截取 limit、相关性交给服务层词项融合），
+resolve 走 batch；有 key 时保留相关性端点并在 429 后回退；熔断器改为按路径计数，否则 5 次 429
+会打开整个来源的熔断而拒绝回退请求。
+
+真实 CLI，全部 `--source semantic_scholar`、无 key：search 5 篇（DPR、RocketQA 居前）、
+resolve 1 篇、citations 42 篇、references 10 篇、related 5 篇，状态均 complete，每次约 17–21 秒
+（含 Python 启动与 1.1 秒最小间隔）。离线回归：provider 测试新增 5 项、可靠性测试新增 1 项。
+
 ### 关键词检索精度、Semantic Scholar 429 与配置查找顺序（2026-09-18）
 
 - Semantic Scholar 持续 429 的根因：`.env` 中 `SEMANTIC_SCHOLAR_API_KEY` 为空，匿名流量共享全球

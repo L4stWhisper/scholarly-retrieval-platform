@@ -33,7 +33,7 @@ scholar doctor
 
 | 变量 | 用途 | 是否必需 |
 |---|---|---|
-| `SEMANTIC_SCHOLAR_API_KEY` | Semantic Scholar 独立配额。未配置时共享全球匿名池，几乎总是 429 | 强烈建议，[免费申请](https://www.semanticscholar.org/product/api) |
+| `SEMANTIC_SCHOLAR_API_KEY` | Semantic Scholar 独立配额与相关性搜索端点。未配置时自动改走匿名可用的 bulk/batch 端点 | 建议，[免费申请](https://www.semanticscholar.org/product/api) |
 | `OPENALEX_API_KEY` / `OPENALEX_MAILTO` | OpenAlex 正式配额与联系邮箱 | 建议 |
 | `SERPAPI_API_KEY` | 启用 Google Scholar（SerpApi）来源 | 可选，付费服务 |
 | `SCHOLAR_GOOGLE_CITATION_ROUNDS` | Google 被引多轮一致性召回的轮数，默认 4，至少 2 | 可选 |

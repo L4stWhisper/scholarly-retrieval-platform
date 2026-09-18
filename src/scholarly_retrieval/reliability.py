@@ -75,8 +75,11 @@ class ReliableHttpClient:
         self._semaphore = asyncio.Semaphore(self.policy.max_concurrency)
         self._pace_lock = asyncio.Lock()
         self._last_request_started = 0.0
-        self._consecutive_failures = 0
-        self._circuit_open_until = 0.0
+        # Upstream services throttle per endpoint (Semantic Scholar exhausts
+        # /paper/search while /paper/search/bulk still answers), so the
+        # breaker is tracked per request path rather than per provider.
+        self._consecutive_failures: dict[str, int] = {}
+        self._circuit_open_until: dict[str, float] = {}
 
     async def get(
         self,
@@ -101,8 +104,7 @@ class ReliableHttpClient:
                     request=request,
                     extensions={"scholarly_cache": {"hit": True}},
                 )
-        if monotonic() < self._circuit_open_until:
-            raise CircuitOpenError(f"circuit open for provider {self.provider}", request=request)
+        self._check_circuit(path, request)
 
         async with self._semaphore:
             return await self._attempts(
@@ -148,8 +150,7 @@ class ReliableHttpClient:
                     request=request,
                     extensions={"scholarly_cache": {"hit": True}},
                 )
-        if monotonic() < self._circuit_open_until:
-            raise CircuitOpenError(f"circuit open for provider {self.provider}", request=request)
+        self._check_circuit(path, request)
         async with self._semaphore:
             return await self._attempts(
                 "POST",
@@ -199,7 +200,7 @@ class ReliableHttpClient:
                     error_type=type(exc).__name__,
                     retry_delay=delay,
                 )
-                self._register_failure()
+                self._register_failure(path)
                 if not retry:
                     raise
                 retry_delays.append(delay or 0.0)
@@ -221,9 +222,9 @@ class ReliableHttpClient:
                 retry_delay=delay,
             )
             if response.status_code in self.policy.retry_statuses:
-                self._register_failure()
+                self._register_failure(path)
             else:
-                self._register_success()
+                self._register_success(path)
             if not retry:
                 response.extensions["scholarly_reliability"] = {
                     "attempt_count": attempt,
@@ -300,14 +301,21 @@ class ReliableHttpClient:
                 run_id=current_run_id.get(),
             )
 
-    def _register_failure(self) -> None:
-        self._consecutive_failures += 1
-        if self._consecutive_failures >= self.policy.circuit_failure_threshold:
-            self._circuit_open_until = monotonic() + self.policy.circuit_cooldown_seconds
+    def _check_circuit(self, path: str, request: httpx.Request) -> None:
+        if monotonic() < self._circuit_open_until.get(path, 0.0):
+            raise CircuitOpenError(
+                f"circuit open for provider {self.provider} path {path}", request=request
+            )
 
-    def _register_success(self) -> None:
-        self._consecutive_failures = 0
-        self._circuit_open_until = 0.0
+    def _register_failure(self, path: str) -> None:
+        failures = self._consecutive_failures.get(path, 0) + 1
+        self._consecutive_failures[path] = failures
+        if failures >= self.policy.circuit_failure_threshold:
+            self._circuit_open_until[path] = monotonic() + self.policy.circuit_cooldown_seconds
+
+    def _register_success(self, path: str) -> None:
+        self._consecutive_failures.pop(path, None)
+        self._circuit_open_until.pop(path, None)
 
 
 def make_cache_key(provider: str, method: str, url: str) -> str:

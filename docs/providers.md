@@ -7,7 +7,7 @@ Google Scholar（SerpApi）和 NASA ADS，最多 14 个来源。
 |---|---:|---:|---:|---:|---:|
 | `openalex` | 是 | 多种 ID | list | list | 否，生产推荐 key |
 | `openaire` | 是 | DOI/arXiv/PMID/OpenAIRE | none | none | 否 |
-| `semantic_scholar` | 是 | 多种 ID | list | list | 否，强烈建议 key |
+| `semantic_scholar` | 是 | 多种 ID | list | list | 否，建议 key（无 key 走 bulk/batch 端点） |
 | `crossref` | 是 | DOI | deposited list | count | 否 |
 | `datacite` | 是 | DOI | none | count | 否 |
 | `dblp` | 是 | DOI/DBLP key | none | none | 否 |
@@ -42,15 +42,28 @@ DataCite 的 arXiv DOI（`10.48550/arxiv.<id>`）等价于 arXiv ID，arXiv 版�
 后缀 DOI（`.v2`、`/v1`）归为同一作品。题名相似但强标识不同的记录只进入人工复核。单个来源不会提前
 去重，Google Scholar 两个 cites ID 的列表也是与其他来源一起统一合并。
 
-## Semantic Scholar 限流
+## Semantic Scholar 限流与匿名访问
 
-未配置 `SEMANTIC_SCHOLAR_API_KEY` 时，请求进入全球共享的匿名配额池，该池几乎总是耗尽，因此持续
-返回 429，指数退避也无法恢复。此时来源报告为 `throttled`，`error_message` 会说明原因与申请地址，
-`context.attempt_count` / `retry_delays` 记录实际重试。匿名模式只重试 3 次（约 6 秒）以免拖慢
-多源检索；配置 key 后重试 5 次、约 2/4/8/16 秒退避，并遵守 `Retry-After`。
+Semantic Scholar 按端点分别限流。未配置 `SEMANTIC_SCHOLAR_API_KEY` 时，`/paper/search` 与
+`/paper/{id}` 共享的匿名池几乎总是耗尽，而 `/paper/search/bulk`、`/paper/batch`、
+`/paper/{id}/citations|references` 和 Recommendations 通常可用。因此：
 
-[免费申请 key](https://www.semanticscholar.org/product/api) 后写入环境变量或 `.env`。重复实验建议
-同时设置 `SCHOLAR_DB_PATH` 复用成功响应缓存。
+| 操作 | 有 key | 无 key（或有 key 但 429 后回退） |
+|---|---|---|
+| search | `/paper/search`（相关性排序） | `/paper/search/bulk`，按引用数降序取前 limit 条，相关性由本项目的词项融合提供 |
+| resolve | `/paper/{id}` | `POST /paper/batch`（未知 ID 返回 null，映射为未找到） |
+| references / citations / related | 同一端点 | 同一端点 |
+
+回退发生时来源报告 `context.endpoint` 与 `fallback_reason` 会说明实际端点；bulk 模式下
+`open_access=false` 在本地过滤并标记 `local`。熔断器按端点路径独立计数，一个端点被限流不会
+阻断同一来源的其他端点。
+
+匿名端点同样可能被限流。此时来源报告为 `throttled`，`error_message` 说明原因与申请地址，
+`context.attempt_count` / `retry_delays` 记录实际重试。匿名模式重试 3 次（约 6 秒）以免拖慢多源
+检索；配置 key 后重试 5 次、约 2/4/8/16 秒退避，并遵守 `Retry-After`。
+
+[免费申请 key](https://www.semanticscholar.org/product/api) 可获得独立配额和相关性排序的搜索端点。
+重复实验建议同时设置 `SCHOLAR_DB_PATH` 复用成功响应缓存。
 
 ## arXiv 论文的多源被引聚合
 
@@ -58,7 +71,7 @@ arXiv 页面的 ADS、Google Scholar、Semantic Scholar 是外部索引入口，
 CLI 会调用配置的数据源，再按论文身份聚合去重；一个来源的计数不是全网总数。
 
 ```bash
-# 无需 Semantic Scholar key 即可尝试；匿名访问会限流
+# 无需 Semantic Scholar key 即可尝试；匿名走 bulk/batch 端点，仍可能限流
 scholar citations "https://arxiv.org/abs/2603.25723" \
   --source openalex,semantic_scholar,google_scholar_serpapi --limit 100
 

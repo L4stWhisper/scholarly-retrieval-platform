@@ -1,11 +1,12 @@
 # 常见问题
 
-## Semantic Scholar 一直返回 429
+## Semantic Scholar 返回 429
 
-未配置 `SEMANTIC_SCHOLAR_API_KEY` 时，请求共享全球匿名配额池，该池几乎总是耗尽，指数退避也无法
-恢复；来源报告会以 `throttled` 状态和 `error_message` 说明这一点。
-[免费申请 key](https://www.semanticscholar.org/product/api) 后写入环境变量或 `.env`，并用
-`scholar doctor` 确认 `api_key_configured: true`。
+无 key 时项目自动改走匿名可用的端点（bulk search、batch lookup），通常能拿到结果；搜索按引用数
+排序再由本地词项融合排相关性。若这些端点也被限流，来源报告会以 `throttled` 状态和 `error_message`
+说明原因。[免费申请 key](https://www.semanticscholar.org/product/api) 后写入环境变量或 `.env`，并用
+`scholar doctor` 确认 `api_key_configured: true`，即可使用相关性排序端点与独立配额。
+详见[数据来源](providers.md#semantic-scholar-限流与匿名访问)。
 
 ## SerpApi 额度用完了
 
